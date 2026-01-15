@@ -243,7 +243,7 @@
             success: function(response) {
                 if (response.comprobante_id) {
                     // Abrir PDF
-                    window.open("/inventario/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
+                    window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
                     
                     // Mostrar mensaje
                     $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
@@ -261,4 +261,5 @@
         });
     }
 </script>
+
 {% endblock %}
