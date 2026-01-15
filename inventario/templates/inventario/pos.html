@@ -242,22 +242,27 @@
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }, // Usamos la variable de template directa
             success: function(response) {
                 if (response.comprobante_id) {
-                    // 1. Actualizar la variable local de productos con los nuevos stocks
-                    response.stocks_actualizados.forEach(update => {
-                        const productIdx = productosData.findIndex(p => p.id == update.id);
-                        if(productIdx > -1) {
-                            productosData[productIdx].stock = update.stock;
-                            // Actualizamos el texto que muestra Select2
-                            const baseName = productosData[productIdx].text.split(' (Stock:')[0];
-                            productosData[productIdx].text = `${baseName} (Stock: ${update.stock})`;
-                        }
-                    });
+                    // 1. Actualizar STOCKS en la variable local para que el buscador refleje el cambio
+                    if (response.stocks_actualizados) {
+                        response.stocks_actualizados.forEach(update => {
+                            const productIdx = productosData.findIndex(p => p.id == update.id);
+                            if(productIdx > -1) {
+                                // Actualizamos el stock numérico
+                                productosData[productIdx].stock = update.stock;
+                                // Actualizamos el texto que Select2 muestra (ej: "Martillo (Stock: 10)")
+                                const baseName = productosData[productIdx].text.split(' (Stock:')[0];
+                                productosData[productIdx].text = `${baseName} (Stock: ${update.stock})`;
+                            }
+                        });
+                    }
 
-                    // 2. Refrescar el buscador para que muestre los nuevos valores
+                    // 2. Refrescar el buscador Select2 con los datos nuevos
                     $('#producto').empty().select2({ data: productosData, placeholder: "Buscar material o herramienta..." });
 
-                    // 3. Abrir PDF y limpiar carrito (lo que ya tenías)
+                    // 3. Abrir Ticket (Tu lógica original)
                     window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
+                    
+                    // 4. Resetear Formulario (Tu lógica original)
                     $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
                     shoppingCart = [];
                     renderizarCarrito();
@@ -273,4 +278,5 @@
 </script>
 
 {% endblock %}
+
 
