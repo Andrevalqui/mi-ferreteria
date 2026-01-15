@@ -1,16 +1,32 @@
 {% extends 'inventario/base.html' %}
 {% block content %}
 <div class="container mt-4" style="max-width: 600px;">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h3 class="mb-0">Registrar Nuevo Empleado</h3>
+    <div class="card shadow border-0">
+        <div class="card-header {% if editando %}bg-warning text-dark{% else %}bg-primary text-white{% endif %}">
+            <h3 class="mb-0 text-center">
+                {% if editando %}
+                    <i class="fas fa-user-edit"></i> Editar Empleado
+                {% else %}
+                    <i class="fas fa-user-plus"></i> Registrar Nuevo Empleado
+                {% endif %}
+            </h3>
         </div>
-        <div class="card-body">
+        <div class="card-body p-4">
             <form method="post">
                 {% csrf_token %}
+                
                 {{ form.as_p }}
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-success">Guardar Usuario</button>
+
+                {% if editando %}
+                    <div class="alert alert-info py-2" style="font-size: 0.85em;">
+                        <i class="fas fa-info-circle"></i> Deja la contraseña en blanco si no deseas cambiarla.
+                    </div>
+                {% endif %}
+
+                <div class="d-grid gap-2 mt-4">
+                    <button type="submit" class="btn {% if editando %}btn-warning{% else %}btn-success{% endif %} fw-bold">
+                        {% if editando %}Actualizar Datos{% else %}Guardar Usuario{% endif %}
+                    </button>
                     <a href="{% url 'inventario:lista_usuarios_tienda' %}" class="btn btn-secondary">Cancelar</a>
                 </div>
             </form>
