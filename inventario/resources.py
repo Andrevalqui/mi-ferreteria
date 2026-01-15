@@ -3,13 +3,11 @@ from import_export.widgets import ForeignKeyWidget
 from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante
 from decimal import Decimal
 
-
 class CleanForeignKeyWidget(ForeignKeyWidget):
     def clean(self, value, row=None, **kwargs):
         if not value:
             return None
         return self.get_queryset(value, row, **kwargs).get(**{f"{self.field}__iexact": value.strip()})
-
 
 class ProductoResource(resources.ModelResource):
     class Meta:
@@ -20,15 +18,12 @@ class ProductoResource(resources.ModelResource):
         report_skipped = False
         import_id_fields = ('id',)
 
-    def before_save_instance(self, instance, **kwargs):
-        # Usamos getattr por seguridad. Si 'tienda_actual' no existe, devuelve None
+    # CORRECCIÓN: Agregamos 'row'
+    def before_save_instance(self, instance, row, **kwargs):
         tienda = getattr(self, 'tienda_actual', None)
         if tienda:
             instance.tienda = tienda
-        
-        # IMPORTANTE: No olvides pasar los **kwargs al super
-        super().before_save_instance(instance, **kwargs)
-
+        super().before_save_instance(instance, row, **kwargs)
 
 class ClienteResource(resources.ModelResource):
     class Meta:
@@ -39,26 +34,18 @@ class ClienteResource(resources.ModelResource):
         report_skipped = False
         import_id_fields = ('id',)
 
-    # **ASEGÚRATE DE QUE ESTE MÉTODO ESTÉ AQUÍ Y ASÍ**
     def before_import_row(self, row, **kwargs):
-        """
-        Asigna la tienda a la fila antes de la importación si 'user' está en kwargs.
-        """
         if 'user' in kwargs and hasattr(kwargs['user'], 'tienda'):
             row['tienda'] = kwargs['user'].tienda.id
         else:
-            # Puedes manejar un error o establecer un valor por defecto si es necesario
-            # para casos donde 'tienda' no puede ser determinada.
-            # Este error será capturado por el bloque try-except en la vista.
-            raise ValueError("No se pudo determinar la tienda para el cliente a importar. El usuario debe tener una tienda asignada.")
-
+            # Si prefieres que no lance error y use la tienda de la vista:
+            pass
 
 class ProveedorResource(resources.ModelResource):
     class Meta:
         model = Proveedor
         fields = ('id', 'razon_social', 'ruc', 'direccion', 'telefono', 'email', 'pagina_web', 'tienda')
         export_order = ('id', 'razon_social', 'ruc', 'direccion', 'telefono', 'email', 'pagina_web')
-        
         skip_unchanged = True
         report_skipped = False
 
@@ -93,7 +80,7 @@ class CompraResource(resources.ModelResource):
             nombre = row.get('producto_nuevo_nombre')
             costo = row.get('producto_nuevo_costo')
             precio = row.get('producto_nuevo_precio')
-            if nombre and hasattr(self, 'tienda_actual'): # Agregado 'hasattr(self, 'tienda_actual')'
+            if nombre and hasattr(self, 'tienda_actual'):
                 nuevo_producto, created = Producto.objects.get_or_create(
                     nombre=nombre,
                     tienda=self.tienda_actual,
@@ -101,12 +88,11 @@ class CompraResource(resources.ModelResource):
                 )
                 row['producto_id'] = nuevo_producto.id
 
-    # **CORRECCIÓN DE SANGRÍA AQUÍ**
-    def before_save_instance(self, instance, **kwargs): # Solo instance y **kwargs
+    # CORRECCIÓN: Agregamos 'row' y corregimos sangría
+    def before_save_instance(self, instance, row, **kwargs):
         if hasattr(self, 'tienda_actual'):
             instance.tienda = self.tienda_actual
-        super().before_save_instance(instance, **kwargs) # Pasa **kwargs
-
+        super().before_save_instance(instance, row, **kwargs)
 
 class VentaResource(resources.ModelResource):
     producto = fields.Field(attribute='producto', widget=ForeignKeyWidget(Producto, 'nombre'))
@@ -116,13 +102,11 @@ class VentaResource(resources.ModelResource):
         fields = ('id', 'cliente', 'producto', 'cantidad', 'precio_unitario', 'costo_unitario', 'total', 'fecha_de_venta', 'observaciones')
         export_order = fields
 
-    # **CORRECCIÓN DE SANGRÍA AQUÍ**
-    # Este método no estaba correctamente indentado dentro de la clase VentaResource.
-    # Además, la firma del método se ha estandarizado a `**kwargs`.
-    def before_save_instance(self, instance, **kwargs):
-        if hasattr(self, 'tienda_actual'): # Asegurarse de que tienda_actual esté configurada
+    # CORRECCIÓN: Agregamos 'row'
+    def before_save_instance(self, instance, row, **kwargs):
+        if hasattr(self, 'tienda_actual'):
             instance.tienda = self.tienda_actual
-        super().before_save_instance(instance, **kwargs) # Pasa **kwargs
+        super().before_save_instance(instance, row, **kwargs)
 
 class ComprobanteResource(resources.ModelResource):
     cliente = fields.Field(attribute='cliente', widget=ForeignKeyWidget(Cliente, 'nombre_completo'))
@@ -180,4 +164,5 @@ class StockActualResource(resources.ModelResource):
     # Este método calcula el valor para nuestra nueva columna
     def dehydrate_valor_total_stock(self, producto):
         return producto.stock * producto.costo
+
 
