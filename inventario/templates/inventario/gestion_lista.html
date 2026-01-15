@@ -39,7 +39,7 @@
                     <tbody>
                         {% for producto in objetos %}
                         <tr>
-                            <td class="text-center fw-bold">{{ producto.id }}</td>
+                            <td class="text-center fw-bold">{{ forloop.counter }}</td>
                             <td class="text-start ps-3">{{ producto.nombre }}</td>
                             <td class="text-center fw-bold">{{ producto.stock }}</td>
                             <td class="text-center">S/ {{ producto.costo|floatformat:2 }}</td>
@@ -429,4 +429,5 @@
     {% endif %}
 
 </div>
+
 {% endblock %}
