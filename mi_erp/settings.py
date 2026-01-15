@@ -86,7 +86,14 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Compresión y almacenamiento para Vercel
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedWhiteNoiseStorage'
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Media files (Carga de imágenes - OJO: Vercel no guarda esto permanentemente, usar S3/Cloudinary en el futuro)
 MEDIA_URL = '/media/'
@@ -98,3 +105,4 @@ LOGIN_URL = 'inventario:login'
 LOGIN_REDIRECT_URL = 'inventario:dashboard'
 
 LOGOUT_REDIRECT_URL = 'inventario:portal'
+
