@@ -1196,13 +1196,18 @@ def crear_cliente_ajax_view(request):
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 def logout_view(request):
-    # Obtenemos el nombre completo antes de cerrar la sesión
-    nombre_usuario = request.user.get_full_name() or request.user.username
+    # Capturamos el nombre y apellido antes de cerrar sesión
+    nombre_completo = request.user.get_full_name()
+    if not nombre_completo:
+        nombre_completo = request.user.username
+    
     auth_logout(request)
-    # Redirigimos al portal pasando el nombre por la URL
+    
+    # Redirigimos al portal pasando el nombre por la URL para el Splash de despedida
     response = redirect('inventario:portal')
-    response['Location'] += f'?logout=true&nombre={nombre_usuario}'
+    response['Location'] += f'?logout=true&nombre={nombre_completo}'
     return response
+
 
 
 
