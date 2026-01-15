@@ -28,10 +28,18 @@ def mantenimiento_total():
                     user_id INTEGER UNIQUE REFERENCES auth_user(id) ON DELETE CASCADE
                 );
             """)
+
+            # --- NUEVA LÓGICA: ACTUALIZACIÓN DE TABLA CLIENTE ---
+            # Agregamos las columnas necesarias para diferenciar Persona de Empresa
+            cursor.execute("ALTER TABLE inventario_cliente ADD COLUMN IF NOT EXISTS dni VARCHAR(8);")
+            cursor.execute("ALTER TABLE inventario_cliente ADD COLUMN IF NOT EXISTS ruc VARCHAR(11);")
+            cursor.execute("ALTER TABLE inventario_cliente ADD COLUMN IF NOT EXISTS razon_social VARCHAR(200);")
+            # ---------------------------------------------------
+
         print("Mantenimiento: Tablas sincronizadas correctamente.")
     except Exception as e:
         print(f"Error en mantenimiento: {e}")
-
+        
     # 3. Recolectar estáticos para el diseño
     try:
         execute_from_command_line(['manage.py', 'collectstatic', '--noinput'])
@@ -40,3 +48,4 @@ def mantenimiento_total():
 
 mantenimiento_total()
 app = application
+
