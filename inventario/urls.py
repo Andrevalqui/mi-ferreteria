@@ -55,6 +55,8 @@ urlpatterns = [
     path('mis-usuarios/nuevo/', views.crear_usuario_tienda, name='crear_usuario_tienda'),
     path('mis-usuarios/editar/<int:usuario_id>/', views.editar_usuario_tienda, name='editar_usuario_tienda'),
     path('mis-usuarios/eliminar/<int:usuario_id>/', views.eliminar_usuario_tienda, name='eliminar_usuario_tienda'),
+    path('gestion/<str:modelo>/eliminar/<int:pk>/', views.gestion_eliminar_view, name='gestion_eliminar'),
 ]
+
 
 
