@@ -785,9 +785,19 @@ def emitir_comprobante_ajax_view(request):
                 'observaciones': observaciones_venta or "--"
             }
 
+            stocks_actualizados = []
+            for item in cart_items:
+                p = Producto.objects.get(id=item['id'])
+                stocks_actualizados.append({
+                    'id': p.id,
+                    'stock': float(p.stock)
+                })
+            # -----------------------------------------------------------
+
             return JsonResponse({
                 'comprobante_id': comprobante.id,
-                'nueva_venta': nueva_venta_data
+                'nueva_venta': nueva_venta_data,
+                'stocks_actualizados': stocks_actualizados  # Agregamos esta línea al diccionario
             })
         
     except ValueError as e:
@@ -1132,3 +1142,4 @@ def gestion_eliminar_view(request, modelo, pk):
 
     # Si por algún motivo se accede por GET, redirigimos a la lista
     return redirect('inventario:gestion_lista', modelo=modelo)
+
