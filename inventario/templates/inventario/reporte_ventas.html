@@ -79,6 +79,7 @@
             <table class="table table-striped table-hover">
                 <thead class="table-light text-center">
                     <tr>
+                        <th>Fecha</th> <!-- NUEVA COLUMNA -->
                         <th>Producto</th>
                         <th>Cantidad</th>
                         <th>Precio Unit.</th>
@@ -90,7 +91,9 @@
                 <tbody class="text-center">
                     {% for detalle in detalles_ventas %}
                     <tr>
-                        <td>{{ detalle.producto.nombre }}</td>
+                        <!-- Mostramos la fecha del comprobante al que pertenece el detalle -->
+                        <td>{{ detalle.comprobante.fecha_emision|date:"d/m/Y H:i" }}</td>
+                        <td class="text-start">{{ detalle.producto.nombre }}</td>
                         <td>{{ detalle.cantidad }}</td>
                         <td>S/ {{ detalle.precio_unitario_display|floatformat:2 }}</td>
                         <td>S/ {{ detalle.costo_unitario_display|floatformat:2 }}</td>
@@ -103,7 +106,7 @@
                     </tr>
                     {% endfor %}
                 </tbody>
-                </table>
+            </table>
         </div>
     </div>
 </div>
@@ -164,4 +167,5 @@
         }
     });
 </script>
+
 {% endblock %}
