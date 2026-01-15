@@ -13,6 +13,7 @@ from django.db import transaction
 from decimal import Decimal 
 from django.urls import reverse
 from django.contrib.auth import views as auth_views
+from django.contrib.auth import logout as auth_logout
 
 # --- IMPORTS PARA EL PANEL DE CLIENTE Y SEGURIDAD ---
 from django.contrib.auth.decorators import login_required
@@ -1193,6 +1194,16 @@ def crear_cliente_ajax_view(request):
             return JsonResponse({'error': str(e)}, status=500)
             
     return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+def logout_view(request):
+    # Obtenemos el nombre completo antes de cerrar la sesión
+    nombre_usuario = request.user.get_full_name() or request.user.username
+    auth_logout(request)
+    # Redirigimos al portal pasando el nombre por la URL
+    response = redirect('inventario:portal')
+    response['Location'] += f'?logout=true&nombre={nombre_usuario}'
+    return response
+
 
 
 
