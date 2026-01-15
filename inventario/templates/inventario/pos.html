@@ -242,13 +242,23 @@
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }, // Usamos la variable de template directa
             success: function(response) {
                 if (response.comprobante_id) {
-                    // Abrir PDF
+                    // 1. Actualizar la variable local de productos con los nuevos stocks
+                    response.stocks_actualizados.forEach(update => {
+                        const productIdx = productosData.findIndex(p => p.id == update.id);
+                        if(productIdx > -1) {
+                            productosData[productIdx].stock = update.stock;
+                            // Actualizamos el texto que muestra Select2
+                            const baseName = productosData[productIdx].text.split(' (Stock:')[0];
+                            productosData[productIdx].text = `${baseName} (Stock: ${update.stock})`;
+                        }
+                    });
+
+                    // 2. Refrescar el buscador para que muestre los nuevos valores
+                    $('#producto').empty().select2({ data: productosData, placeholder: "Buscar material o herramienta..." });
+
+                    // 3. Abrir PDF y limpiar carrito (lo que ya tenías)
                     window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
-                    
-                    // Mostrar mensaje
                     $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
-                    
-                    // Resetear
                     shoppingCart = [];
                     renderizarCarrito();
                     $('#cliente').val(null).trigger('change');
@@ -263,3 +273,4 @@
 </script>
 
 {% endblock %}
+
