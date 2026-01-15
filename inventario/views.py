@@ -1,5 +1,3 @@
-# inventario/views.py
-
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante, Tienda, LoginLog, Perfil
 import json
@@ -1092,13 +1090,45 @@ def eliminar_usuario_tienda(request, usuario_id):
     
     return redirect('inventario:lista_usuarios_tienda')
 
+@login_required
+def gestion_eliminar_view(request, modelo, pk):
+    """
+    Vista genérica para eliminar registros de Productos, Clientes, Proveedores y Compras.
+    Incluye lógica para devolver el stock si se elimina una compra.
+    """
+    tienda_actual = request.user.tienda
+    
+    Modelos = {
+        'productos': Producto, 
+        'clientes': Cliente, 
+        'proveedores': Proveedor, 
+        'compras': Compra
+    }
+    
+    Modelo = Modelos.get(modelo)
+    if not Modelo:
+        messages.error(request, "Módulo no encontrado.")
+        return redirect('inventario:dashboard')
 
+    # Buscamos el objeto asegurándonos que pertenezca a la tienda del usuario logueado
+    objeto = get_object_or_404(Modelo, pk=pk, tienda=tienda_actual)
 
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # LÓGICA ESPECIAL PARA COMPRAS:
+                # Si borramos una compra, debemos restar el stock que esa compra sumó en su momento.
+                if modelo == 'compras':
+                    producto = objeto.producto
+                    producto.stock -= objeto.cantidad
+                    producto.save()
+                
+                objeto.delete()
+                messages.success(request, "El registro ha sido eliminado correctamente.")
+        except Exception as e:
+            messages.error(request, f"Ocurrió un error al intentar eliminar: {e}")
+        
+        return redirect('inventario:gestion_lista', modelo=modelo)
 
-
-
-
-
-
-
-
+    # Si por algún motivo se accede por GET, redirigimos a la lista
+    return redirect('inventario:gestion_lista', modelo=modelo)
