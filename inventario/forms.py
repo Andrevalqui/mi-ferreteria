@@ -57,11 +57,15 @@ class CompraForm(forms.ModelForm):
             self.fields['producto'].queryset = Producto.objects.filter(tienda=tienda)
 
 class EmpleadoForm(forms.Form):
-    username = forms.CharField(max_length=150, label="Usuario de acceso")
+    username = forms.CharField(max_length=150, label="Nombre de Usuario")
     first_name = forms.CharField(max_length=150, label="Nombre")
-    last_name = forms.CharField(max_length=150, label="Apellido")
+    last_name = forms.CharField(max_length=150, label="Apellidos")
     password = forms.CharField(widget=forms.PasswordInput, label="Contraseña")
-    rol = forms.ChoiceField(choices=[('ADMIN', 'Admin Local'), ('VENDEDOR', 'Vendedor')], label="Rol en la tienda")
+    # ASEGÚRATE DE QUE ESTO SE LLAME 'rol'
+    rol = forms.ChoiceField(
+        choices=[('VENDEDOR', 'Vendedor'), ('ADMIN', 'Administrador Local')], 
+        label="Rol en la tienda"
+    )
 
 class EmpleadoForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput, label="Contraseña")
@@ -82,6 +86,7 @@ class EmpleadoForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
 
 
 
