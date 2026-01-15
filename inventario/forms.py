@@ -54,3 +54,11 @@ class CompraForm(forms.ModelForm):
         if tienda:
             self.fields['proveedor'].queryset = Proveedor.objects.filter(tienda=tienda)
             self.fields['producto'].queryset = Producto.objects.filter(tienda=tienda)
+
+class EmpleadoForm(forms.Form):
+    username = forms.CharField(max_length=150, label="Nombre de Usuario")
+    first_name = forms.CharField(max_length=150, label="Nombre")
+    last_name = forms.CharField(max_length=150, label="Apellidos")
+    password = forms.CharField(widget=forms.PasswordInput, label="Contraseña")
+    rol = forms.ChoiceField(choices=[('VENDEDOR', 'Vendedor'), ('ADMIN', 'Administrador Local')])
+
