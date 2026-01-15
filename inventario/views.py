@@ -21,7 +21,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .forms import (
     # RegistroTiendaForm, ImportForm, # Asegúrate de que ImportForm existe si lo usas
-    RegistroTiendaForm, ProductoForm, ClienteForm, ProveedorForm, CompraForm
+    RegistroTiendaForm, ProductoForm, ClienteForm, ProveedorForm, CompraForm, EmpleadoForm
 )
 # ¡Importa todos tus Resources necesarios!
 from .resources import (
@@ -1049,6 +1049,7 @@ def crear_usuario_tienda(request):
     else:
         form = EmpleadoForm()
     return render(request, 'inventario/usuarios_form.html', {'form': form})
+
 
 
 
