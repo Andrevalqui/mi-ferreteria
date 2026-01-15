@@ -220,7 +220,11 @@ class LoginLog(models.Model):
 class Perfil(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='miembros')
-    rol = models.CharField(max_length=20, choices=[('DUENO', 'Dueño'), ('VENDEDOR', 'Vendedor')], default='VENDEDOR')
+    rol = models.CharField(
+        max_length=20, 
+        choices=[('VENDEDOR', 'Vendedor'), ('ADMIN', 'Administrador Local')], 
+        default='VENDEDOR'
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.tienda.nombre} ({self.rol})"
@@ -232,5 +236,6 @@ class Empleado(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.tienda.nombre}"
+
 
 
