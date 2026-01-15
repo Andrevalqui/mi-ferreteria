@@ -36,8 +36,9 @@ class ProductoForm(forms.ModelForm):
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = ['nombre_completo', 'dni_ruc', 'telefono', 'email', 'pagina_web']
-
+        # Definimos los campos en el orden que solicitaste para Bruno
+        fields = ['nombre_completo', 'dni', 'razon_social', 'ruc', 'telefono', 'email', 'pagina_web']
+        
 class ProveedorForm(forms.ModelForm):
     class Meta:
         model = Proveedor
@@ -48,7 +49,6 @@ class CompraForm(forms.ModelForm):
         model = Compra
         fields = ['proveedor', 'producto', 'cantidad', 'costo_total']
 
-    # Hacemos que los desplegables solo muestren productos/proveedores de la tienda actual
     def __init__(self, *args, **kwargs):
         tienda = kwargs.pop('tienda', None)
         super(CompraForm, self).__init__(*args, **kwargs)
@@ -61,13 +61,13 @@ class EmpleadoForm(forms.Form):
     first_name = forms.CharField(max_length=150, label="Nombre")
     last_name = forms.CharField(max_length=150, label="Apellidos")
     password = forms.CharField(widget=forms.PasswordInput, label="Contraseña")
-    # ASEGÚRATE DE QUE ESTO SE LLAME 'rol'
     rol = forms.ChoiceField(
         choices=[('VENDEDOR', 'Vendedor'), ('ADMIN', 'Administrador Local')], 
         label="Rol en la tienda"
     )
 
-class EmpleadoForm(forms.ModelForm):
+
+class EmpleadoModelForm(forms.ModelForm): # Le cambio el nombre para evitar colisión de clases
     password = forms.CharField(widget=forms.PasswordInput, label="Contraseña")
     
     class Meta:
@@ -86,8 +86,3 @@ class EmpleadoForm(forms.ModelForm):
         if commit:
             user.save()
         return user
-
-
-
-
-
