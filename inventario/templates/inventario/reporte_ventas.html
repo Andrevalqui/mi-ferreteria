@@ -93,7 +93,7 @@
                     <tr>
                         <!-- Mostramos la fecha y hora del comprobante -->
                         <td>{{ detalle.comprobante.fecha_emision|date:"d/m/Y H:i" }}</td>
-                        <td class="text-start">{{ detalle.producto.nombre }}</td>
+                        <td class="text-center">{{ detalle.producto.nombre }}</td>
                         <td>{{ detalle.cantidad }}</td>
                         <td>S/ {{ detalle.precio_unitario_display|floatformat:2 }}</td>
                         <td>S/ {{ detalle.costo_unitario_display|floatformat:2 }}</td>
@@ -168,3 +168,4 @@
     });
 </script>
 {% endblock %}
+
