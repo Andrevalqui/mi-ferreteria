@@ -1001,47 +1001,64 @@ def log_logueos_view(request):
 
 @login_required
 def lista_usuarios_tienda(request):
-    tienda = request.user.tienda # O el perfil vinculado
+    tienda = request.user.tienda
+    # Obtenemos los perfiles de los empleados de esta tienda (excluyendo al dueño)
     empleados = Perfil.objects.filter(tienda=tienda).exclude(user=request.user)
-    return render(request, 'inventario/usuarios_lista.html', {'empleados': empleados})
+    return render(request, 'inventario/usuarios_lista.html', {
+        'empleados': empleados,
+        'tienda': tienda  # Pasamos la tienda para el título
+    })
 
 @login_required
-def crear_usuario_tienda(request):
+def editar_usuario_tienda(request, usuario_id):
+    tienda_actual = request.user.tienda
+    # Buscamos el perfil y nos aseguramos que pertenezca a la tienda de Bruno
+    perfil = get_object_or_404(Perfil, id=usuario_id, tienda=tienda_actual)
+    usuario = perfil.user
+
     if request.method == 'POST':
         form = EmpleadoForm(request.POST)
         if form.is_valid():
             data = form.cleaned_data
-            
-            # Usamos transaction.atomic para que si algo falla, no se cree el usuario a medias
-            from django.db import transaction
-            try:
-                with transaction.atomic():
-                    # 1. Crear el usuario de Django
-                    nuevo_user = User.objects.create_user(
-                        username=data['username'],
-                        password=data['password'],
-                        first_name=data['first_name'],
-                        last_name=data['last_name'],
-                        is_staff=False
-                    )
-                    
-                    # 2. Vincularlo a la tienda de Bruno (Usando .get para evitar el KeyError)
-                    rol_seleccionado = data.get('rol', 'VENDEDOR')
-                    
-                    Perfil.objects.create(
-                        user=nuevo_user,
-                        tienda=request.user.tienda,
-                        rol=rol_seleccionado
-                    )
-                    
-                messages.success(request, f"¡Empleado {nuevo_user.username} creado con éxito!")
-                return redirect('inventario:lista_usuarios_tienda')
-            except Exception as e:
-                messages.error(request, f"Error al crear el perfil: {e}")
+            # Actualizamos datos del usuario
+            usuario.username = data['username']
+            usuario.first_name = data['first_name']
+            usuario.last_name = data['last_name']
+            if data['password']: # Solo si Bruno escribe una nueva clave
+                usuario.set_password(data['password'])
+            usuario.save()
+
+            # Actualizamos el rol en el perfil
+            perfil.rol = data['rol']
+            perfil.save()
+
+            messages.success(request, f"Empleado {usuario.username} actualizado.")
+            return redirect('inventario:lista_usuarios_tienda')
     else:
-        form = EmpleadoForm()
+        # Pre-llenamos el formulario con los datos actuales
+        form = EmpleadoForm(initial={
+            'username': usuario.username,
+            'first_name': usuario.first_name,
+            'last_name': usuario.last_name,
+            'rol': perfil.rol,
+        })
     
-    return render(request, 'inventario/usuarios_form.html', {'form': form})
+    return render(request, 'inventario/usuarios_form.html', {'form': form, 'editando': True})
+
+@login_required
+def eliminar_usuario_tienda(request, usuario_id):
+    tienda_actual = request.user.tienda
+    perfil = get_object_or_404(Perfil, id=usuario_id, tienda=tienda_actual)
+    usuario = perfil.user
+    
+    if request.method == 'POST':
+        nombre = usuario.username
+        usuario.delete() # Esto borra el usuario y su perfil automáticamente
+        messages.warning(request, f"Empleado {nombre} eliminado correctamente.")
+        return redirect('inventario:lista_usuarios_tienda')
+    
+    return redirect('inventario:lista_usuarios_tienda')
+
 
 
 
