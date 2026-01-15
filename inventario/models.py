@@ -59,8 +59,17 @@ class Proveedor(models.Model):
 
 class Cliente(models.Model):
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='clientes')
-    nombre_completo = models.CharField(max_length=200, verbose_name="Nombre Completo o Razón Social")
-    dni_ruc = models.CharField(max_length=11, blank=True, null=True, verbose_name="DNI o RUC")
+    
+    # --- División Persona / Empresa ---
+    nombre_completo = models.CharField(max_length=200, verbose_name="Nombre Completo", blank=True, null=True)
+    dni = models.CharField(max_length=8, blank=True, null=True, verbose_name="DNI")
+    
+    razon_social = models.CharField(max_length=200, verbose_name="Razón Social", blank=True, null=True)
+    ruc = models.CharField(max_length=11, blank=True, null=True, verbose_name="RUC")
+    # ----------------------------------
+
+    # Mantenemos dni_ruc para no romper la lógica de unique_together actual
+    dni_ruc = models.CharField(max_length=11, blank=True, null=True, verbose_name="DNI o RUC (Legacy)")
     telefono = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
     email = models.EmailField(blank=True)
     pagina_web = models.URLField(max_length=200, blank=True, verbose_name="Página Web")
@@ -71,7 +80,9 @@ class Cliente(models.Model):
         verbose_name_plural = "Clientes"
 
     def __str__(self):
-        return f"{self.nombre_completo} ({self.tienda.nombre})"
+        # Lógica para mostrar Razón Social si existe, sino Nombre Completo
+        nombre_a_mostrar = self.razon_social if self.razon_social else self.nombre_completo
+        return f"{nombre_a_mostrar} ({self.tienda.nombre})"
 
 class Venta(models.Model):
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='ventas')
@@ -224,6 +235,7 @@ class Perfil(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.tienda.nombre} ({self.rol})"
+
 
 
 
