@@ -23,6 +23,15 @@
             <h2>{{ modelo_nombre_plural|title }}</h2>
             <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Producto</a>
         </div>
+
+        <!-- BUSCADOR INTELIGENTE PRODUCTOS -->
+        <div class="mb-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="smart-search" class="form-control border-start-0" placeholder="Filtrar productos por nombre, ID o precio...">
+            </div>
+        </div>
+
         <div class="card shadow-sm mb-5">
             <div class="table-responsive">
                 <table class="table table-striped table-hover mb-0">
@@ -69,6 +78,7 @@
                     <li>
                         <strong>Descarga la plantilla actual de tus productos.</strong> Contiene tus productos con sus IDs para una fácil edición.
                         <div class="my-2">
+                            {# CAMBIO: Usamos la URL para exportar productos directamente #}
                             <a href="{% url 'inventario:exportar_productos' %}" class="btn btn-secondary">
                                 <i class="fas fa-download"></i> Exportar Productos Actuales
                             </a>
@@ -77,6 +87,7 @@
                     <li>
                         <strong>Modifica el archivo Excel.</strong> (Importante: No modifiques la columna `id` si quieres actualizar. Si la dejas vacía, se creará un nuevo registro.)
                         <div class="my-2">
+                            {# CAMBIO: Ofrecemos también la plantilla vacía si prefieren empezar de cero #}
                             <a href="{% url 'inventario:descargar_plantilla' model_name='productos' %}" class="btn btn-info text-white">
                                 <i class="fas fa-file-excel"></i> Descargar Plantilla Vacía
                             </a>
@@ -105,6 +116,15 @@
             <h2>{{ modelo_nombre_plural|title }}</h2>
             <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Cliente</a>
         </div>
+
+        <!-- BUSCADOR INTELIGENTE CLIENTES -->
+        <div class="mb-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="smart-search" class="form-control border-start-0" placeholder="Filtrar clientes por nombre, DNI, RUC o teléfono...">
+            </div>
+        </div>
+
         <div class="card shadow-sm mb-5">
             <div class="table-responsive">
                 <table class="table table-striped table-hover mb-0">
@@ -169,6 +189,7 @@
                     <li>
                         <strong>Descarga la plantilla.</strong>
                         <div class="my-2">
+                            {# CAMBIO: Usamos la URL genérica para descargar plantillas #}
                             <a href="{% url 'inventario:descargar_plantilla' model_name='clientes' %}" class="btn btn-secondary">
                                 <i class="fas fa-download"></i> Descargar Plantilla
                             </a>
@@ -178,6 +199,7 @@
                     <li>
                         <strong>Sube el archivo completo.</strong>
                         <div class="my-2">
+                            {# CAMBIO: Apuntamos a la nueva vista general de importación #}
                             <form action="{% url 'inventario:importar_datos' data_type='clientes' %}" method="post" enctype="multipart/form-data">
                                 <div class="input-group">
                                     {% csrf_token %}
@@ -198,6 +220,15 @@
             <h2>{{ modelo_nombre_plural|title }}</h2>
             <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Proveedor</a>
         </div>
+
+        <!-- BUSCADOR INTELIGENTE PROVEEDORES -->
+        <div class="mb-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="smart-search" class="form-control border-start-0" placeholder="Filtrar proveedores por razón social o RUC...">
+            </div>
+        </div>
+
         <div class="card shadow-sm mb-5">
             <div class="table-responsive">
                 <table class="table table-striped table-hover mb-0">
@@ -242,6 +273,7 @@
                     <li>
                         <strong>Descarga la plantilla.</strong>
                         <div class="my-2">
+                            {# CAMBIO: Usamos la URL genérica para descargar plantillas #}
                             <a href="{% url 'inventario:descargar_plantilla' model_name='proveedores' %}" class="btn btn-secondary">
                                 <i class="fas fa-download"></i> Descargar Plantilla
                             </a>
@@ -251,6 +283,7 @@
                     <li>
                         <strong>Sube el archivo completo.</strong>
                         <div class="my-2">
+                            {# CAMBIO: Apuntamos a la nueva vista general de importación #}
                             <form action="{% url 'inventario:importar_datos' data_type='proveedores' %}" method="post" enctype="multipart/form-data">
                                 <div class="input-group">
                                     {% csrf_token %}
@@ -271,6 +304,15 @@
             <h2>{{ modelo_nombre_plural|title }}</h2>
             <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nueva Compra</a>
         </div>
+
+        <!-- BUSCADOR INTELIGENTE COMPRAS -->
+        <div class="mb-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="smart-search" class="form-control border-start-0" placeholder="Filtrar compras por proveedor, producto o fecha...">
+            </div>
+        </div>
+
         <div class="card shadow-sm mb-5">
             <div class="table-responsive">
                 <table class="table table-striped table-hover mb-0">
@@ -322,6 +364,7 @@
                     <li>
                         <strong>Descarga la plantilla de Excel.</strong> Contiene las columnas exactas que necesitas.
                         <div class="my-2">
+                            {# CAMBIO: Usamos la URL genérica para descargar plantillas #}
                             <a href="{% url 'inventario:descargar_plantilla' model_name='compras' %}" class="btn btn-secondary">
                                 <i class="fas fa-download"></i> Descargar Plantilla
                             </a>
@@ -356,6 +399,15 @@
                 <i class="fas fa-file-excel"></i> Exportar a Excel
             </a>
         </div>
+
+        <!-- BUSCADOR INTELIGENTE COMPROBANTES -->
+        <div class="mb-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="smart-search" class="form-control border-start-0" placeholder="Filtrar por número, serie, cliente o estado...">
+            </div>
+        </div>
+
         <div class="card shadow-sm">
             <div class="table-responsive">
                 <table class="table table-striped table-hover mb-0">
@@ -408,6 +460,15 @@
             <h2>{{ modelo_nombre_plural|title }}</h2>
             <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo</a>
         </div>
+
+        <!-- BUSCADOR INTELIGENTE OTROS -->
+        <div class="mb-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="smart-search" class="form-control border-start-0" placeholder="Filtrar registros...">
+            </div>
+        </div>
+
         <div class="card shadow-sm mb-5">
             <div class="table-responsive">
                 <table class="table table-striped table-hover mb-0">
@@ -445,4 +506,34 @@
 </div>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('smart-search');
+        // Seleccionamos todas las filas de la tabla presente en la página
+        const tableRows = document.querySelectorAll('table tbody tr');
 
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function(e) {
+                const term = e.target.value.toLowerCase();
+
+                tableRows.forEach(row => {
+                    // Ignoramos la fila de "No hay registros" si existe
+                    if (row.cells.length === 1 || row.innerText.includes('No hay')) {
+                        return;
+                    }
+
+                    // El buscador revisa el contenido de texto de toda la fila
+                    const rowText = row.innerText.toLowerCase();
+                    
+                    if (rowText.indexOf(term) !== -1) {
+                        row.style.display = ''; // Mostrar fila
+                    } else {
+                        row.style.display = 'none'; // Ocultar fila
+                    }
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}
