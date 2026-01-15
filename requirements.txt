@@ -7,4 +7,3 @@ xhtml2pdf==0.2.15
 openpyxl==3.1.2
 django-import-export==3.3.6
 tablib==3.5.0
-select2-django==2.0.2
