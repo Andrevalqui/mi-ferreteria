@@ -1030,24 +1030,25 @@ def crear_usuario_tienda(request):
         form = EmpleadoForm(request.POST)
         if form.is_valid():
             data = form.cleaned_data
-            # Crear el usuario de Django
+            # 1. Crea el usuario en la base de datos de Django
             nuevo_user = User.objects.create_user(
                 username=data['username'],
                 password=data['password'],
                 first_name=data['first_name'],
                 last_name=data['last_name'],
-                is_staff=False # IMPORTANTE: No le damos acceso al admin
+                is_staff=False # No entra al /admin/
             )
-            # Vincularlo a la tienda de Bruno
+            # 2. Le asigna la tienda de Bruno automáticamente
             Perfil.objects.create(
                 user=nuevo_user,
-                tienda=request.user.tienda,
+                tienda=request.user.tienda, # <--- Aquí ocurre la magia
                 rol=data['rol']
             )
-            messages.success(request, f"Empleado {nuevo_user.username} creado con éxito.")
+            messages.success(request, f"¡Empleado {nuevo_user.username} creado con éxito!")
             return redirect('inventario:lista_usuarios_tienda')
     else:
         form = EmpleadoForm()
     return render(request, 'inventario/usuarios_form.html', {'form': form})
+
 
 
