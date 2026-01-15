@@ -108,12 +108,9 @@
     <div class="ticket-container">
         <div class="header">
             {% load static %}
-            {% if comprobante.tienda.logo %}
-                <img src="{{ comprobante.tienda.logo.url }}?v={{ comprobante.tienda.creada_en|date:'U' }}"
-     style="max-width: 100%; height: auto; max-height: 100px; display: block; margin: 0 auto 5px auto;">
-            {% else %}
-                <img src="{% static 'inventario/images/default_store_logo.png' %}">
-            {% endif %}
+            <img src="{% static 'inventario/images/logo.jpeg' %}" 
+                 style="max-width: 100%; height: auto; max-height: 100px; display: block; margin: 0 auto 5px auto;">
+            <br>
             <strong>{{ comprobante.tienda.nombre|upper }}</strong><br>
             RUC: {{ comprobante.tienda.ruc|default:"N/A" }}<br>
             Dirección: {{ comprobante.tienda.direccion|default:"N/A" }}<br>
@@ -200,3 +197,4 @@
 
 </body>
 </html>
+
