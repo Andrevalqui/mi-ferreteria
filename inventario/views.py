@@ -1151,25 +1151,48 @@ def crear_cliente_ajax_view(request):
             tienda_actual = request.user.tienda
             data = json.loads(request.body)
             
-            # Validamos que al menos el nombre exista
-            if not data.get('nombre'):
-                return JsonResponse({'error': 'El nombre es obligatorio'}, status=400)
+            # Extraemos los datos del JSON enviado por el POS
+            nombre_persona = data.get('nombre')
+            dni_persona = data.get('dni')
+            razon_social_empresa = data.get('razon')
+            ruc_empresa = data.get('ruc')
+            telefono_contacto = data.get('tel', '')
 
-            # Creamos el cliente
+            # Validamos que al menos uno de los dos nombres principales exista
+            if not nombre_persona and not razon_social_empresa:
+                return JsonResponse({'error': 'Debe ingresar un Nombre o una Razón Social'}, status=400)
+
+            # Lógica para dni_ruc (Legacy): Para mantener el unique_together,
+            # guardamos el RUC si existe, de lo contrario el DNI.
+            documento_principal = ruc_empresa if ruc_empresa else dni_persona
+
+            # Creamos el cliente con la nueva estructura dividida
             cliente = Cliente.objects.create(
                 tienda=tienda_actual,
-                nombre_completo=data.get('nombre'),
-                dni_ruc=data.get('doc'),
-                telefono=data.get('tel', '')
+                nombre_completo=nombre_persona,
+                dni=dni_persona,
+                razon_social=razon_social_empresa,
+                ruc=ruc_empresa,
+                dni_ruc=documento_principal, # Compatibilidad con modelo anterior
+                telefono=telefono_contacto
             )
 
+            # Preparamos la respuesta para el POS
+            # str(cliente) usará la lógica que definimos en el modelo (__str__)
             return JsonResponse({
                 'id': cliente.id,
+                'text': str(cliente), # Lo que verá Bruno en el buscador
                 'nombre': cliente.nombre_completo,
-                'doc': cliente.dni_ruc
+                'dni': cliente.dni,
+                'razon': cliente.razon_social,
+                'ruc': cliente.ruc
             })
+            
         except Exception as e:
+            # En caso de error (ej: DNI/RUC duplicado), enviamos el mensaje al POS
             return JsonResponse({'error': str(e)}, status=500)
+            
     return JsonResponse({'error': 'Método no permitido'}, status=405)
+
 
 
