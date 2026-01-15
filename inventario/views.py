@@ -431,12 +431,14 @@ def registro_view(request):
     return render(request, 'inventario/registro.html', {'form': form})
 
 @login_required
+@login_required
 def dashboard_view(request):
     try:
         tienda_actual = request.user.tienda
     except Tienda.DoesNotExist:
-        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
-        return redirect('inventario:dashboard') # Puedes redirigir a un login o página de error
+        # CAMBIAMOS 'dashboard' por 'portal' para romper el bucle
+        messages.error(request, "No tienes una tienda asignada. Crea una primero.")
+        return redirect('inventario:portal')
 
     hoy = timezone.localdate()
 
@@ -1015,3 +1017,4 @@ def log_logueos_view(request):
         'failed_logins': failed_logins,
     }
     return render(request, 'inventario/log_logueos.html', context)
+
