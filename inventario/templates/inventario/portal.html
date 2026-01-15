@@ -7,14 +7,13 @@
     <title>Ferretería Master - Calidad para Construir</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&family=Anton&display=swap" rel="stylesheet">
     
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8f9fa; }
         
         /* Hero Section */
         .hero {
-            /* Imagen de fondo de construcción/herramientas */
             background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1581783342308-f792ca11df53?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80');
             background-size: cover;
             background-position: center;
@@ -55,12 +54,42 @@
         .feature-card:hover { transform: translateY(-10px); }
         .feature-icon { font-size: 3rem; color: #ffc107; margin-bottom: 20px; }
 
+        /* --- ESTILOS SPLASH SCREEN --- */
+        #splash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1d2b38;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            color: white;
+            text-align: center;
+        }
+        .splash-text {
+            font-family: 'Anton', sans-serif;
+            font-size: 3rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
     </style>
 </head>
 <body>
 
+    <!-- OVERLAY DEL SPLASH SCREEN -->
+    <div id="splash-overlay">
+        <div class="splash-text" id="splash-message">PROCESANDO...</div>
+        <div class="spinner-border text-warning" style="width: 4rem; height: 4rem;" role="status"></div>
+    </div>
+
     <!-- Botón de Acceso para Personal -->
-    <a href="{% url 'inventario:login' %}" class="btn btn-warning btn-lg fw-bold btn-employee shadow">
+    <a href="{% url 'inventario:login' %}" class="btn btn-warning btn-lg fw-bold btn-employee shadow" id="btn-acceso">
         <i class="fas fa-user-lock"></i> Acceso Personal
     </a>
 
@@ -109,6 +138,35 @@
             <small class="text-muted">Sistema desarrollado para gestión de ferreterías.</small>
         </div>
     </footer>
+
+    <script>
+        const splash = document.getElementById('splash-overlay');
+        const splashMsg = document.getElementById('splash-message');
+
+        // 1. Splash al dar clic en Acceso Personal
+        document.getElementById('btn-acceso').addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetUrl = this.href;
+            splashMsg.innerText = "VAMOS A LOGUEARNOS .....";
+            splash.style.display = 'flex';
+            setTimeout(() => { window.location.href = targetUrl; }, 1500);
+        });
+
+        // 2. Splash de Despedida (Logout)
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('logout')) {
+                const nombre = urlParams.get('nombre') || 'USUARIO';
+                splashMsg.innerHTML = `NOS VEMOS HASTA LA PRÓXIMA <br> <span style="color:#ffc107">${nombre.toUpperCase()}</span>`;
+                splash.style.display = 'flex';
+                setTimeout(() => { 
+                    splash.style.transition = "opacity 0.8s";
+                    splash.style.opacity = "0";
+                    setTimeout(() => { splash.style.display = 'none'; }, 800);
+                }, 3000);
+            }
+        });
+    </script>
 
 </body>
 </html>
