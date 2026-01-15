@@ -1077,12 +1077,17 @@ def editar_usuario_tienda(request, usuario_id):
 @login_required
 def eliminar_usuario_tienda(request, usuario_id):
     tienda_actual = request.user.tienda
+    # Buscamos el perfil del empleado
     perfil = get_object_or_404(Perfil, id=usuario_id, tienda=tienda_actual)
+    
     if request.method == 'POST':
-        user = perfil.user
-        user.delete() # Borra usuario y perfil en cascada
-        messages.success(request, "Empleado eliminado.")
+        usuario = perfil.user
+        # Al borrar el usuario, Django borra el perfil automáticamente por el CASCADE
+        usuario.delete() 
+        messages.success(request, f"El empleado ha sido eliminado de la tienda.")
+    
     return redirect('inventario:lista_usuarios_tienda')
+
 
 
 
