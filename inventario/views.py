@@ -1002,17 +1002,49 @@ def log_logueos_view(request):
 @login_required
 def lista_usuarios_tienda(request):
     tienda = request.user.tienda
-    # Obtenemos los perfiles de los empleados de esta tienda (excluyendo al dueño)
+    # Obtenemos los empleados de esta tienda (excluyendo al dueño)
     empleados = Perfil.objects.filter(tienda=tienda).exclude(user=request.user)
     return render(request, 'inventario/usuarios_lista.html', {
         'empleados': empleados,
-        'tienda': tienda  # Pasamos la tienda para el título
+        'tienda': tienda 
     })
+
+@login_required
+def crear_usuario_tienda(request):
+    tienda_actual = request.user.tienda
+    if request.method == 'POST':
+        form = EmpleadoForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    # 1. Crear el usuario de Django
+                    nuevo_user = User.objects.create_user(
+                        username=data['username'],
+                        password=data['password'],
+                        first_name=data['first_name'],
+                        last_name=data['last_name'],
+                        is_staff=False
+                    )
+                    # 2. Vincularlo a la tienda y asignarle el rol
+                    Perfil.objects.create(
+                        user=nuevo_user,
+                        tienda=tienda_actual,
+                        rol=data.get('rol', 'VENDEDOR')
+                    )
+                messages.success(request, f"¡Empleado {nuevo_user.username} creado con éxito!")
+                return redirect('inventario:lista_usuarios_tienda')
+            except Exception as e:
+                messages.error(request, f"Error al crear el usuario: {e}")
+    else:
+        form = EmpleadoForm()
+    
+    # 'editando': False sirve para que el HTML sepa que es un registro nuevo
+    return render(request, 'inventario/usuarios_form.html', {'form': form, 'editando': False})
 
 @login_required
 def editar_usuario_tienda(request, usuario_id):
     tienda_actual = request.user.tienda
-    # Buscamos el perfil y nos aseguramos que pertenezca a la tienda de Bruno
     perfil = get_object_or_404(Perfil, id=usuario_id, tienda=tienda_actual)
     usuario = perfil.user
 
@@ -1020,22 +1052,19 @@ def editar_usuario_tienda(request, usuario_id):
         form = EmpleadoForm(request.POST)
         if form.is_valid():
             data = form.cleaned_data
-            # Actualizamos datos del usuario
             usuario.username = data['username']
             usuario.first_name = data['first_name']
             usuario.last_name = data['last_name']
-            if data['password']: # Solo si Bruno escribe una nueva clave
+            if data['password']: # Solo cambia la clave si Bruno escribe algo
                 usuario.set_password(data['password'])
             usuario.save()
 
-            # Actualizamos el rol en el perfil
-            perfil.rol = data['rol']
+            perfil.rol = data.get('rol', 'VENDEDOR')
             perfil.save()
 
             messages.success(request, f"Empleado {usuario.username} actualizado.")
             return redirect('inventario:lista_usuarios_tienda')
     else:
-        # Pre-llenamos el formulario con los datos actuales
         form = EmpleadoForm(initial={
             'username': usuario.username,
             'first_name': usuario.first_name,
@@ -1049,15 +1078,12 @@ def editar_usuario_tienda(request, usuario_id):
 def eliminar_usuario_tienda(request, usuario_id):
     tienda_actual = request.user.tienda
     perfil = get_object_or_404(Perfil, id=usuario_id, tienda=tienda_actual)
-    usuario = perfil.user
-    
     if request.method == 'POST':
-        nombre = usuario.username
-        usuario.delete() # Esto borra el usuario y su perfil automáticamente
-        messages.warning(request, f"Empleado {nombre} eliminado correctamente.")
-        return redirect('inventario:lista_usuarios_tienda')
-    
+        user = perfil.user
+        user.delete() # Borra usuario y perfil en cascada
+        messages.success(request, "Empleado eliminado.")
     return redirect('inventario:lista_usuarios_tienda')
+
 
 
 
