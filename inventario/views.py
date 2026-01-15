@@ -632,16 +632,16 @@ def descargar_plantilla_view(request, model_name): # Acepta model_name desde la 
 # VISTA GENERALIZADA PARA IMPORTACIÓN MASIVA (Reemplaza importar_productos_view, importar_clientes_view, importar_proveedores_view)
 # ==============================================================================
 @login_required
-def importar_datos_view(request, data_type): # data_type: 'clientes', 'productos', 'proveedores', 'compras'
+def importar_datos_view(request, data_type):
     try:
         tienda_actual = request.user.tienda
     except Tienda.DoesNotExist:
-        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        messages.error(request, "No tienes una tienda asignada.")
         return redirect('inventario:dashboard')
 
     if data_type not in IMPORT_TYPES:
         messages.error(request, 'Tipo de importación inválido.')
-        return redirect('inventario:dashboard') # O a una URL base de importación
+        return redirect('inventario:dashboard')
 
     config = IMPORT_TYPES[data_type]
     ResourceClass = config['resource']
@@ -650,9 +650,9 @@ def importar_datos_view(request, data_type): # data_type: 'clientes', 'productos
     template_headers = config['template_headers']
 
     if request.method == 'POST':
-        file = request.FILES.get('excel_file') # Asegúrate que el nombre del campo file en el HTML sea 'excel_file'
+        file = request.FILES.get('excel_file')
         if not file:
-            messages.error(request, f'Por favor, selecciona un archivo de {plural_name} para importar.')
+            messages.error(request, f'Selecciona un archivo para importar.')
             return redirect('inventario:importar_datos', data_type=data_type)
 
         dataset = Dataset()
@@ -661,68 +661,49 @@ def importar_datos_view(request, data_type): # data_type: 'clientes', 'productos
                 dataset.load(file.read().decode('utf-8'), format='csv')
             elif file.name.endswith(('.xls', '.xlsx')):
                 dataset.load(file.read(), format='xlsx')
-            else:
-                messages.error(request, 'Formato de archivo no soportado. Por favor, sube un archivo CSV o Excel (.xls, .xlsx).')
-                return redirect('inventario:importar_datos', data_type=data_type)
-
-            data_resource = ResourceClass()
             
-            # Pasa la instancia de Tienda al Resource a través de kwargs
-            # Esto será capturado por el método before_import_row en BaseResource
-            result = data_resource.import_data(dataset, dry_run=True, raise_errors=False, 
-                                               tienda_instance=tienda_actual) # ¡Pasamos la tienda!
+            # --- MEJORA AQUÍ ---
+            data_resource = ResourceClass()
+            # Asignamos la tienda directamente al objeto resource
+            data_resource.tienda_actual = tienda_actual 
+
+            # Ejecutamos el dry_run
+            result = data_resource.import_data(dataset, dry_run=True, raise_errors=False)
 
             if result.has_errors():
                 for error in result.row_errors():
-                    # error[0] es el índice de la fila (0-indexed), error[1] es una lista de ImportError
-                    row_number = error[0] + 1 # Convertir a 1-indexed
+                    row_number = error[0] + 1
                     for field_error in error[1]:
-                        # field_error.error es el mensaje de error, field_error.field es el campo
-                        error_message = f"Fila {row_number}: {field_error.error}"
-                        if field_error.field:
-                            error_message += f" (Columna: {field_error.field.column_name})"
-                        messages.error(request, error_message)
-                for error in result.base_errors:
-                    messages.error(request, f"Error general: {error.error}")
-                messages.error(request, f'¡Importación de {plural_name} fallida! Por favor, corrige los errores en tu archivo.')
+                        # SOLUCIÓN AL ERROR 'field': Usamos getattr para evitar el choque
+                        error_msg = str(field_error.error)
+                        field = getattr(field_error, 'field', None)
+                        
+                        if field:
+                            messages.error(request, f"Fila {row_number}: {error_msg} (Columna: {field.column_name})")
+                        else:
+                            messages.error(request, f"Fila {row_number}: {error_msg}")
                 
-                # Renderiza la misma página con los errores detallados
                 return render(request, 'inventario/importar_datos.html', {
-                    'messages': messages.get_messages(request), # Asegura que los mensajes se muestren
                     'data_type_display': plural_name,
                     'template_headers': template_headers,
-                    'dry_run_result': result, # Pasa el resultado del dry_run para mostrar más detalles
+                    'dry_run_result': result,
                     'data_type': data_type
                 })
             else:
-                # Si no hay errores en el dry_run, se procede con la importación real
-                # Pasa la instancia de Tienda nuevamente
-                result = data_resource.import_data(dataset, dry_run=False, 
-                                                   tienda_instance=tienda_actual) 
-                
-                imported_count = result.new_objects.count()
-                updated_count = result.update_objects.count()
-                skipped_count = result.skip_row_count
-
-                messages.success(request, f'Importación de {plural_name} completada.')
-                messages.info(request, f'✔️ Nuevos {singular_name}s: {imported_count}.')
-                messages.info(request, f'🔄 {singular_name}s actualizados: {updated_count}.')
-                if skipped_count > 0:
-                    messages.warning(request, f'⚠️ {singular_name}s omitidos (sin cambios o con errores leves): {skipped_count}.')
-                
-                return redirect('inventario:importar_datos', data_type=data_type)
+                # Si no hay errores, importación real
+                data_resource.import_data(dataset, dry_run=False, raise_errors=False)
+                messages.success(request, f'¡Importación de {plural_name} completada con éxito!')
+                return redirect('inventario:gestion_lista', modelo=data_type)
 
         except Exception as e:
-            messages.error(request, f'Ocurrió un error inesperado durante la importación: {e}')
+            messages.error(request, f'Error al procesar el archivo: {e}')
             return redirect('inventario:importar_datos', data_type=data_type)
 
-    # Para el método GET, simplemente renderiza el formulario de subida
     return render(request, 'inventario/importar_datos.html', {
         'data_type_display': plural_name,
         'template_headers': template_headers,
         'data_type': data_type
     })
-
 # ==============================================================================
 
 
@@ -1049,6 +1030,7 @@ def crear_usuario_tienda(request):
     else:
         form = EmpleadoForm()
     return render(request, 'inventario/usuarios_form.html', {'form': form})
+
 
 
 
