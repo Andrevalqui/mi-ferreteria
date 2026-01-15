@@ -1,19 +1,25 @@
 import os
 from django.core.wsgi import get_wsgi_application
+from django.db import connection
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mi_erp.settings')
 
 application = get_wsgi_application()
 
-# --- TRUCO ACTUALIZADO PARA CREAR COLUMNAS FALTANTES ---
-from django.core.management import execute_from_command_line
-try:
-    # 1. Esto detecta que falta 'unidad_medida' y crea el archivo de migración
-    execute_from_command_line(['manage.py', 'makemigrations', 'inventario', '--noinput'])
-    # 2. Esto aplica el cambio a la base de datos de Neon
-    execute_from_command_line(['manage.py', 'migrate', 'inventario', '--noinput'])
-except Exception as e:
-    print(f"Error en migraciones: {e}")
-# -----------------------------------------------------
+# --- SOLUCIÓN DEFINITIVA: INYECCIÓN SQL DIRECTA ---
+def corregir_base_de_datos():
+    try:
+        with connection.cursor() as cursor:
+            # Este comando agrega la columna directamente en Neon
+            cursor.execute("""
+                ALTER TABLE inventario_producto 
+                ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(20) DEFAULT 'UND';
+            """)
+        print("Columna 'unidad_medida' verificada/creada con éxito.")
+    except Exception as e:
+        print(f"Nota: {e}")
+
+corregir_base_de_datos()
+# --------------------------------------------------
 
 app = application
