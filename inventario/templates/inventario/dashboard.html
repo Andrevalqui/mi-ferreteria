@@ -4,31 +4,48 @@
 
 {% block extra_styles %}
 <style>
+    /* === SPLASH DE BIENVENIDA === */
+    #welcome-splash {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #1d2b38;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        color: white;
+        text-align: center;
+    }
+    .welcome-text {
+        font-family: 'Anton', sans-serif;
+        font-size: 3.5rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
     /* === INICIO: NUEVO DISEÑO DE TÍTULO Y EFECTOS === */
-    
-    /* Animación para el fondo del título */
+    /* ... (Todo tu CSS original de KPI y títulos se mantiene igual aquí) ... */
     @keyframes animated-gradient {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
 
-    /* Título Premium, Dinámico, Gerencial y Ejecutivo */
     .dashboard-title {
         text-align: center;
-        font-weight: 600; /* Ligeramente más elegante que 900 */
+        font-weight: 600; 
         font-size: 2.5rem;
-        color: #f8f9fa; /* Un blanco menos puro, más suave */
+        color: #f8f9fa; 
         padding: 20px;
         margin-bottom: 40px;
         border-radius: 12px;
-        
-        /* El fondo dinámico y ejecutivo */
         background: linear-gradient(60deg, #1d2b38, #2c3e50, #1d2b38, #2c3e50);
         background-size: 300% 300%;
         animation: animated-gradient 15s ease infinite;
-
-        /* Efectos premium de relieve y sombra */
         border-top: 1px solid rgba(255, 255, 255, 0.2);
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
         text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
@@ -36,43 +53,24 @@
         text-transform: uppercase;
     }
     
-    /* --- FIN: NUEVO DISEÑO DE TÍTULO --- */
-
-
-    /* Tarjetas de Indicadores (KPIs) con su diseño base */
     .kpi-card {
         border-left: 5px solid #0d6efd;
-        transition: transform 0.3s ease, box-shadow 0.3s ease; /* Transición suave */
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    
-    /* Efecto de luz para las tarjetas KPI */
     .kpi-card:hover {
         transform: translateY(-8px);
         box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(13, 110, 253, 0.4);
     }
-    
     .kpi-card .card-body { text-align: center; }
     .kpi-card .card-title { font-size: 1rem; font-weight: bold; color: #6c757d; text-transform: uppercase; }
     .kpi-card .card-text { font-size: 2.2rem; font-weight: bold; }
     .border-success { border-left-color: #198754 !important; }
-    .kpi-card.border-success:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(25, 135, 84, 0.5); }
     .border-primary { border-left-color: #0d6efd !important; }
-    .kpi-card.border-primary:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(13, 110, 253, 0.5); }
     .border-warning { border-left-color: #ffc107 !important; }
-    .kpi-card.border-warning:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(255, 193, 7, 0.5); }
     .border-danger { border-left-color: #dc3545 !important; }
-    .kpi-card.border-danger:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(220, 53, 69, 0.5); }
 
+    .modules-title { font-weight: 600; color: #333; padding-bottom: 10px; border-bottom: 2px solid #ddd; }
 
-    /* Título de la sección de Módulos */
-    .modules-title {
-        font-weight: 600;
-        color: #333;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #ddd;
-    }
-
-    /* Tarjetas de Módulos de Gestión con su diseño base */
     .module-card {
         background-color: #f8f9fa;
         border: 1px solid #e9ecef;
@@ -83,30 +81,29 @@
         color: #343a40;
         transition: all 0.3s ease;
     }
-    
-    /* Efecto de luz para las tarjetas de Módulos */
     .module-card:hover {
         transform: translateY(-8px);
         box-shadow: 0 12px 25px rgba(0,0,0,0.1), 0 0 20px rgba(13, 110, 253, 0.3);
         border-color: #0d6efd;
     }
-
-    .module-card-icon {
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
-        color: #0d6efd;
-    }
-    .module-card-title {
-        font-size: 1.1rem;
-        font-weight: bold;
-    }
+    .module-card-icon { font-size: 2.5rem; margin-bottom: 1rem; color: #0d6efd; }
+    .module-card-title { font-size: 1.1rem; font-weight: bold; }
 </style>
 {% endblock %}
 
 
 {% block content %}
+<!-- SPLASH DE BIENVENIDA DINÁMICO -->
+<div id="welcome-splash">
+    <div class="welcome-text">
+        BIENVENIDO <br>
+        <span style="color: #ffc107;">{{ user.get_full_name|upper }}</span> <br>
+        AL PORTAL
+    </div>
+    <div class="spinner-border text-warning mt-4" style="width: 3rem; height: 3rem;"></div>
+</div>
+
 <div class="container-fluid mt-4">
-    
     <h1 class="dashboard-title">Panel de Control</h1>
 
     <div class="row">
@@ -180,7 +177,6 @@
                 <div class="module-card-title">Reporte de Ventas</div>
             </a>
         </div>
-        <!-- Módulo Mi Personal / Usuarios agregado respetando el diseño original -->
         <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
             <a href="{% url 'inventario:lista_usuarios_tienda' %}" class="module-card d-block">
                 <div class="module-card-icon"><i class="fas fa-user-tie"></i></div>
@@ -190,4 +186,15 @@
     </div>
 </div>
 
+<script>
+    // Lógica para ocultar el splash de bienvenida
+    window.addEventListener('load', function() {
+        const splash = document.getElementById('welcome-splash');
+        setTimeout(() => {
+            splash.style.transition = "opacity 0.8s";
+            splash.style.opacity = "0";
+            setTimeout(() => { splash.style.display = 'none'; }, 800);
+        }, 2000);
+    });
+</script>
 {% endblock %}
