@@ -121,12 +121,32 @@
                         {% for cliente in objetos %}
                         <tr>
                             <td class="text-center fw-bold">{{ forloop.counter }}</td>
-                            <td class="text-start ps-3">{{ cliente.nombre_completo }}</td>
-                            <td class="text-center">{{ cliente.dni_ruc|default:"--" }}</td>
+                            
+                            <!-- MOSTRAR NOMBRE O RAZÓN SOCIAL SEGÚN CORRESPONDA -->
+                            <td class="text-start ps-3">
+                                {% if cliente.razon_social %}
+                                    <i class="fas fa-building text-muted me-1"></i> {{ cliente.razon_social }}
+                                {% elif cliente.nombre_completo %}
+                                    <i class="fas fa-user text-muted me-1"></i> {{ cliente.nombre_completo }}
+                                {% else %}
+                                    <span class="text-muted">Sin nombre</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- MOSTRAR RUC O DNI SEGÚN CORRESPONDA -->
+                            <td class="text-center">
+                                {% if cliente.ruc %}
+                                    <span class="badge bg-light text-dark border">RUC: {{ cliente.ruc }}</span>
+                                {% elif cliente.dni %}
+                                    <span class="badge bg-light text-dark border">DNI: {{ cliente.dni }}</span>
+                                {% else %}
+                                    {{ cliente.dni_ruc|default:"--" }}
+                                {% endif %}
+                            </td>
+
                             <td class="text-center">{{ cliente.telefono|default:"--" }}</td>
                             <td class="text-center">
                                 <a href="{% url 'inventario:gestion_editar' modelo=modelo_slug pk=cliente.pk %}" class="btn btn-sm btn-secondary">Editar</a>
-                                <!-- BOTÓN ELIMINAR CLIENTE -->
                                 <form action="{% url 'inventario:gestion_eliminar' modelo=modelo_slug pk=cliente.pk %}" method="post" class="d-inline">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Seguro que deseas eliminar este cliente?');">
@@ -424,4 +444,5 @@
 
 </div>
 {% endblock %}
+
 
