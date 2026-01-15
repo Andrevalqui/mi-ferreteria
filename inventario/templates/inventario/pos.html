@@ -116,28 +116,48 @@
     </div>
 </div>
 
-<!-- MODAL DE REGISTRO RÁPIDO DE CLIENTE (NUEVO) -->
+<!-- MODAL DE REGISTRO RÁPIDO DE CLIENTE (DIVIDIDO) -->
 <div class="modal fade" id="modalNuevoCliente" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title"><i class="fas fa-user-edit"></i> Registro Rápido de Cliente</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title"><i class="fas fa-user-plus"></i> Registro Rápido de Cliente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="form-nuevo-cliente">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Nombre Completo o Razón Social</label>
-                        <input type="text" id="reg_nombre" class="form-control" required placeholder="Ej: Juan Perez o Constructora SAC">
-                    </div>
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold">DNI o RUC</label>
-                            <input type="text" id="reg_doc" class="form-control" maxlength="11" placeholder="8 u 11 dígitos">
+                        <!-- SECCIÓN PERSONA -->
+                        <div class="col-md-6 border-end">
+                            <h6 class="fw-bold text-primary border-bottom pb-2">Persona (Boleta)</h6>
+                            <div class="mb-2">
+                                <label class="small fw-bold">Nombre Completo</label>
+                                <input type="text" id="reg_nombre" class="form-control form-control-sm">
+                            </div>
+                            <div class="mb-2">
+                                <label class="small fw-bold">DNI</label>
+                                <input type="text" id="reg_dni" class="form-control form-control-sm" maxlength="8">
+                            </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold">Teléfono</label>
-                            <input type="text" id="reg_tel" class="form-control" placeholder="Opcional">
+                        <!-- SECCIÓN EMPRESA -->
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-success border-bottom pb-2">Empresa (Factura)</h6>
+                            <div class="mb-2">
+                                <label class="small fw-bold">Razón Social</label>
+                                <input type="text" id="reg_razon" class="form-control form-control-sm">
+                            </div>
+                            <div class="mb-2">
+                                <label class="small fw-bold">RUC</label>
+                                <input type="text" id="reg_ruc" class="form-control form-control-sm" maxlength="11">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-2 border-top">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="small fw-bold">Teléfono de Contacto</label>
+                                <input type="text" id="reg_tel" class="form-control form-control-sm">
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -161,15 +181,24 @@
     let shoppingCart = [];
     const productosData = {{ productos_json|safe }};
     
+    // --- NUEVA LÓGICA: clientesData ahora incluye RUC y RAZON para validación ---
+    const clientesData = [ 
+        { id: '', text: 'Cliente General (Público)', ruc: '', razon: '' }, 
+        {% for cliente in clientes %} 
+        { 
+            id: {{ cliente.id }}, 
+            text: "{{ cliente|escapejs }}", 
+            ruc: "{{ cliente.ruc|default:'' }}", 
+            razon: "{{ cliente.razon_social|default:'' }}" 
+        }{% if not forloop.last %},{% endif %} 
+        {% endfor %} 
+    ];
+
     $(document).ready(function() {
         // Inicializar Select2
         $('#producto').select2({ data: productosData, placeholder: "Buscar material o herramienta...", width: '100%' });
         
-        const clientesData = [ { id: '', text: 'Cliente General (Público)' }, 
-            {% for cliente in clientes %} 
-            { id: {{ cliente.id }}, text: "{{ cliente.nombre_completo|escapejs }}" }{% if not forloop.last %},{% endif %} 
-            {% endfor %} 
-        ];
+        // Inicializar Clientes con la nueva data
         $('#cliente').select2({ data: clientesData, width: '100%' });
 
         // Evento Agregar Click
@@ -194,15 +223,17 @@
             }
         });
 
-        // LÓGICA PARA GUARDAR CLIENTE RÁPIDO (NUEVO)
+        // LÓGICA PARA GUARDAR CLIENTE RÁPIDO (CON SOPORTE EMPRESA)
         $('#btn-guardar-cliente-rapido').click(function() {
             const data = {
                 nombre: $('#reg_nombre').val(),
-                doc: $('#reg_doc').val(),
+                dni: $('#reg_dni').val(),
+                razon: $('#reg_razon').val(),
+                ruc: $('#reg_ruc').val(),
                 tel: $('#reg_tel').val()
             };
 
-            if (!data.nombre) return alert("Por favor ingresa el nombre.");
+            if (!data.nombre && !data.razon) return alert("Por favor ingresa un Nombre o Razón Social.");
 
             $.ajax({
                 url: "{% url 'inventario:crear_cliente_ajax' %}",
@@ -211,11 +242,19 @@
                 data: JSON.stringify(data),
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' },
                 success: function(response) {
-                    // 1. Añadir el nuevo cliente al selector Select2 y seleccionarlo
-                    const newOption = new Option(response.nombre + " (" + (response.doc || 'Sin Doc') + ")", response.id, true, true);
+                    // 1. Actualizar nuestra lista local de validación
+                    clientesData.push({ 
+                        id: response.id, 
+                        text: response.text, 
+                        ruc: response.ruc, 
+                        razon: response.razon 
+                    });
+
+                    // 2. Añadir al selector Select2 y seleccionar
+                    const newOption = new Option(response.text, response.id, true, true);
                     $('#cliente').append(newOption).trigger('change');
                     
-                    // 2. Limpiar formulario y cerrar modal
+                    // 3. Limpiar formulario y cerrar modal
                     $('#form-nuevo-cliente')[0].reset();
                     const modalElement = document.getElementById('modalNuevoCliente');
                     const modal = bootstrap.Modal.getInstance(modalElement);
@@ -232,15 +271,12 @@
 
     function agregarAlCarrito() {
         const prodId = $('#producto').val();
-        // CAMBIO FERRETERO: parseFloat para permitir decimales
         const qty = parseFloat($('#cantidad').val());
 
         if(!prodId) return alert("Seleccione un producto");
         if(isNaN(qty) || qty <= 0) return alert("Cantidad inválida");
 
         const prodInfo = productosData.find(p => p.id == prodId);
-        
-        // Verificar si ya existe en el carrito
         const existingIdx = shoppingCart.findIndex(i => i.id == prodId);
 
         if(existingIdx > -1) {
@@ -248,7 +284,7 @@
         } else {
             shoppingCart.push({
                 id: prodInfo.id,
-                name: prodInfo.text.split(' (Stock:')[0], // Limpiar nombre visual
+                name: prodInfo.text.split(' (Stock:')[0],
                 quantity: qty,
                 price: parseFloat(prodInfo.precio)
             });
@@ -257,7 +293,7 @@
         renderizarCarrito();
         $('#producto').val(null).trigger('change');
         $('#cantidad').val(1);
-        $('#producto').select2('open'); // Volver al buscador
+        $('#producto').select2('open');
     }
 
     function renderizarCarrito() {
@@ -285,7 +321,6 @@
             tbody.append(row);
         });
 
-        // Cálculos Finales
         const subtotal = total / 1.18;
         const igv = total - subtotal;
 
@@ -304,13 +339,18 @@
         if(shoppingCart.length === 0) return alert("El carrito está vacío.");
 
         const clienteId = $('#cliente').val();
+        
+        // --- NUEVA VALIDACIÓN INTELIGENTE PARA FACTURAS ---
+        const selectedClient = clientesData.find(c => c.id == clienteId);
 
         if (tipo === 'FACTURA') {
-            if (!clienteId || clienteId === "") {
-                alert("⚠️ RESTRICCIÓN DE FACTURACIÓN:\n\nNo se puede emitir una FACTURA a 'Público General'.\nEs necesario seleccionar una empresa con RUC válido.");
-                return;
+            // Verificamos si existe el cliente y si tiene RUC + RAZON SOCIAL
+            if (!selectedClient || !selectedClient.ruc || !selectedClient.razon) {
+                alert("⚠️ RESTRICCIÓN DE FACTURACIÓN:\n\nEl cliente seleccionado no tiene RUC ni RAZÓN SOCIAL registrados.\n\nPara emitir una FACTURA, es obligatorio seleccionar una Empresa registrada. Si es una persona con DNI, emita una BOLETA.");
+                return; // Bloquea la emisión
             }
         }
+        // --------------------------------------------------
 
         const payload = {
             cliente_id: clienteId,
@@ -339,7 +379,6 @@
                     }
 
                     $('#producto').empty().select2({ data: productosData, placeholder: "Buscar material o herramienta..." });
-
                     window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
                     
                     $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
