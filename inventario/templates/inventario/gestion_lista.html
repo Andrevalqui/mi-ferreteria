@@ -362,7 +362,7 @@
                             <td>S/ {{ comprobante.total_final|floatformat:2 }}</td>
                             <td>{{ comprobante.estado }}</td>
                             <td class="text-center">
-                                <a href="{% url 'inventario:vista_ticket_comprobante' comprobante_id=comprobante.id %}" target="_blank" class="btn btn-sm btn-info text-white me-1" title="Ver Ticket">
+                                <a href="{% url 'inventario:vista_ticket_comprobante' comprobante.id %}" target="_blank" class="btn btn-sm btn-info text-white me-1">
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 <a href="{% url 'inventario:descargar_comprobante_pdf' comprobante_id=comprobante.id %}" class="btn btn-sm btn-danger me-1" title="Descargar PDF">
@@ -424,3 +424,4 @@
 
 </div>
 {% endblock %}
+
