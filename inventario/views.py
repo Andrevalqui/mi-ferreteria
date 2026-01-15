@@ -1143,3 +1143,33 @@ def gestion_eliminar_view(request, modelo, pk):
     # Si por algún motivo se accede por GET, redirigimos a la lista
     return redirect('inventario:gestion_lista', modelo=modelo)
 
+@login_required
+@csrf_exempt
+def crear_cliente_ajax_view(request):
+    if request.method == 'POST':
+        try:
+            tienda_actual = request.user.tienda
+            data = json.loads(request.body)
+            
+            # Validamos que al menos el nombre exista
+            if not data.get('nombre'):
+                return JsonResponse({'error': 'El nombre es obligatorio'}, status=400)
+
+            # Creamos el cliente
+            cliente = Cliente.objects.create(
+                tienda=tienda_actual,
+                nombre_completo=data.get('nombre'),
+                dni_ruc=data.get('doc'),
+                telefono=data.get('tel', '')
+            )
+
+            return JsonResponse({
+                'id': cliente.id,
+                'nombre': cliente.nombre_completo,
+                'doc': cliente.dni_ruc
+            })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
