@@ -1,7 +1,7 @@
 # inventario/views.py
 
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante, Tienda, LoginLog
+from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante, Tienda, LoginLog, Perfil
 import json
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
@@ -1049,6 +1049,7 @@ def crear_usuario_tienda(request):
     else:
         form = EmpleadoForm()
     return render(request, 'inventario/usuarios_form.html', {'form': form})
+
 
 
 
