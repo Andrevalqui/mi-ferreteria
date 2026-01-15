@@ -1,0 +1,52 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Reporte de Stock Actual - La Esquina del Shot{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-secondary text-white">
+        <h1 class="h3 mb-0 fw-bold">Reporte de Stock Actual</h1>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info text-center">
+            <h4 class="alert-heading">Valor Total del Inventario</h4>
+            <p class="fs-3 fw-bold mb-0">S/ {{ valor_total_inventario|floatformat:2 }}</p>
+        </div>
+
+        <hr>
+
+        <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+            <h2 class="h4 mb-0">Detalle del Inventario por Producto</h2>
+            <a href="{% url 'inventario:exportar_stock_actual' %}" class="btn btn-success">
+                <i class="fas fa-file-excel"></i> Exportar a Excel
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-light text-center">
+                    <tr>
+                        <th>Producto</th>
+                        <th>Stock Actual</th>
+                        <th>Costo Unitario</th>
+                        <th>Valor Total del Stock</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center">
+                    {% for producto in productos %}
+                    <tr>
+                        <td class="text-start">{{ producto.nombre }}</td>
+                        <td class="fs-5 fw-bold">{{ producto.stock }}</td>
+                        <td>S/ {{ producto.costo|floatformat:2 }}</td>
+                        <td>S/ {{ producto.valor_stock|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center p-4">No hay productos registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

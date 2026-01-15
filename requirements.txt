@@ -1,0 +1,10 @@
+Django
+gunicorn
+psycopg2-binary
+dj-database-url
+whitenoise
+xhtml2pdf
+openpyxl
+django-import-export
+tablib
+select2-django

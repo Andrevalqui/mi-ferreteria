@@ -1,0 +1,185 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Panel de Control{% endblock %}
+
+{% block extra_styles %}
+<style>
+    /* === INICIO: NUEVO DISEÑO DE TÍTULO Y EFECTOS === */
+    
+    /* Animación para el fondo del título */
+    @keyframes animated-gradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* Título Premium, Dinámico, Gerencial y Ejecutivo */
+    .dashboard-title {
+        text-align: center;
+        font-weight: 600; /* Ligeramente más elegante que 900 */
+        font-size: 2.5rem;
+        color: #f8f9fa; /* Un blanco menos puro, más suave */
+        padding: 20px;
+        margin-bottom: 40px;
+        border-radius: 12px;
+        
+        /* El fondo dinámico y ejecutivo */
+        background: linear-gradient(60deg, #1d2b38, #2c3e50, #1d2b38, #2c3e50);
+        background-size: 300% 300%;
+        animation: animated-gradient 15s ease infinite;
+
+        /* Efectos premium de relieve y sombra */
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }
+    
+    /* --- FIN: NUEVO DISEÑO DE TÍTULO --- */
+
+
+    /* Tarjetas de Indicadores (KPIs) con su diseño base */
+    .kpi-card {
+        border-left: 5px solid #0d6efd;
+        transition: transform 0.3s ease, box-shadow 0.3s ease; /* Transición suave */
+    }
+    
+    /* Efecto de luz para las tarjetas KPI */
+    .kpi-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(13, 110, 253, 0.4);
+    }
+    
+    .kpi-card .card-body { text-align: center; }
+    .kpi-card .card-title { font-size: 1rem; font-weight: bold; color: #6c757d; text-transform: uppercase; }
+    .kpi-card .card-text { font-size: 2.2rem; font-weight: bold; }
+    .border-success { border-left-color: #198754 !important; }
+    .kpi-card.border-success:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(25, 135, 84, 0.5); }
+    .border-primary { border-left-color: #0d6efd !important; }
+    .kpi-card.border-primary:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(13, 110, 253, 0.5); }
+    .border-warning { border-left-color: #ffc107 !important; }
+    .kpi-card.border-warning:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(255, 193, 7, 0.5); }
+    .border-danger { border-left-color: #dc3545 !important; }
+    .kpi-card.border-danger:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 20px rgba(220, 53, 69, 0.5); }
+
+
+    /* Título de la sección de Módulos */
+    .modules-title {
+        font-weight: 600;
+        color: #333;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #ddd;
+    }
+
+    /* Tarjetas de Módulos de Gestión con su diseño base */
+    .module-card {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        text-decoration: none;
+        color: #343a40;
+        transition: all 0.3s ease;
+    }
+    
+    /* Efecto de luz para las tarjetas de Módulos */
+    .module-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 25px rgba(0,0,0,0.1), 0 0 20px rgba(13, 110, 253, 0.3);
+        border-color: #0d6efd;
+    }
+
+    .module-card-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: #0d6efd;
+    }
+    .module-card-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid mt-4">
+    
+    <h1 class="dashboard-title">Panel de Control</h1>
+
+    <div class="row">
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm kpi-card border-success">
+                <div class="card-body">
+                    <h5 class="card-title text-success"><i class="fas fa-money-bill-wave"></i> MONTO VENTAS (HOY)</h5>
+                    <p class="card-text">S/ {{ ventas_hoy_monto|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm kpi-card border-primary">
+                <div class="card-body">
+                    <h5 class="card-title text-primary"><i class="fas fa-receipt"></i> N° VENTAS (HOY)</h5>
+                    <p class="card-text">{{ total_ventas_hoy }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm kpi-card {% if productos_bajo_stock > 0 %}border-danger{% else %}border-warning{% endif %}">
+                <div class="card-body">
+                    <h5 class="card-title {% if productos_bajo_stock > 0 %}text-danger{% else %}text-warning{% endif %}"><i class="fas fa-box-open"></i> BAJO STOCK</h5>
+                    <p class="card-text">{{ productos_bajo_stock }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="mb-3 modules-title">Módulos de Gestión</h2>
+    <div class="row">
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <a href="{% url 'inventario:pos' %}" class="module-card d-block">
+                <div class="module-card-icon"><i class="fas fa-cash-register"></i></div>
+                <div class="module-card-title">Punto de Venta (POS)</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <a href="{% url 'inventario:gestion_lista' modelo='productos' %}" class="module-card d-block">
+                <div class="module-card-icon"><i class="fas fa-boxes-stacked"></i></div>
+                <div class="module-card-title">Gestionar Productos</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <a href="{% url 'inventario:gestion_lista' modelo='clientes' %}" class="module-card d-block">
+                <div class="module-card-icon"><i class="fas fa-users"></i></div>
+                <div class="module-card-title">Gestionar Clientes</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <a href="{% url 'inventario:gestion_lista' modelo='proveedores' %}" class="module-card d-block">
+                <div class="module-card-icon"><i class="fas fa-truck-moving"></i></div>
+                <div class="module-card-title">Gestionar Proveedores</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <a href="{% url 'inventario:gestion_lista' modelo='compras' %}" class="module-card d-block">
+                <div class="module-card-icon"><i class="fas fa-dolly-flatbed"></i></div>
+                <div class="module-card-title">Gestión de Compras</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <a href="{% url 'inventario:gestion_lista' modelo='comprobantes' %}" class="module-card d-block">
+                <div class="module-card-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div class="module-card-title">Gestionar Comprobantes</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+             <a href="{% url 'inventario:reporte_ventas' %}" class="module-card d-block">
+                <div class="module-card-icon"><i class="fas fa-chart-line"></i></div>
+                <div class="module-card-title">Reporte de Ventas</div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

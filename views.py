@@ -1,0 +1,1017 @@
+# inventario/views.py
+
+from django.shortcuts import render, redirect, get_object_or_404
+from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante, Tienda, LoginLog
+import json
+from django.utils import timezone
+from django.db.models import Sum, Count, Q
+from datetime import datetime, timedelta, time
+from django.db.models.functions import TruncDay
+from django.utils.timezone import make_aware 
+from django.db.models import F 
+import openpyxl
+from django.http import HttpResponse, JsonResponse 
+from django.db import transaction 
+from decimal import Decimal 
+from django.urls import reverse
+from django.contrib.auth import views as auth_views
+
+# --- IMPORTS PARA EL PANEL DE CLIENTE Y SEGURIDAD ---
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from .forms import (
+    # RegistroTiendaForm, ImportForm, # Asegúrate de que ImportForm existe si lo usas
+    RegistroTiendaForm, ProductoForm, ClienteForm, ProveedorForm, CompraForm
+)
+# ¡Importa todos tus Resources necesarios!
+from .resources import (
+    ProductoResource, ClienteResource, ProveedorResource, CompraResource, 
+    # Asegúrate de que estos Resources existan y estén correctamente definidos en inventario/resources.py
+    # ComprobanteResource, DetalleComprobanteResource, StockActualResource 
+)
+from tablib import Dataset
+from django.views.decorators.csrf import csrf_exempt
+# from django.core.serializers import serialize # No usado en este código, se puede eliminar
+from django.template.loader import get_template
+from io import BytesIO
+from xhtml2pdf import pisa
+from django.contrib import messages
+
+
+# ==============================================================================
+# DICCIONARIO CENTRALIZADO PARA LA IMPORTACIÓN MASIVA
+# (Es crucial que las 'template_headers' coincidan con los `fields` de tus Resources
+#  y los encabezados de tus archivos Excel para que la importación funcione).
+# ==============================================================================
+IMPORT_TYPES = {
+    'clientes': {
+        'resource': ClienteResource,
+        'template_headers': ['nombre_completo', 'dni_ruc', 'telefono', 'email', 'pagina_web'],
+        'singular_name': 'Cliente',
+        'plural_name': 'Clientes'
+    },
+    'productos': {
+        'resource': ProductoResource,
+        'template_headers': ['nombre', 'codigo_barras', 'stock', 'costo', 'precio'],
+        'singular_name': 'Producto',
+        'plural_name': 'Productos'
+    },
+    'proveedores': {
+        'resource': ProveedorResource,
+        'template_headers': ['razon_social', 'ruc', 'direccion', 'telefono', 'email', 'pagina_web'],
+        'singular_name': 'Proveedor',
+        'plural_name': 'Proveedores'
+    },
+    'compras': {
+        'resource': CompraResource,
+        # Importante: Estas columnas deben estar en tu Excel de Compras.
+        # ruc_proveedor: El RUC del proveedor existente.
+        # codigo_barras_producto: El código de barras del producto existente.
+        'template_headers': ['ruc_proveedor', 'codigo_barras_producto', 'cantidad', 'costo_total', 'fecha_de_compra', 'numero_factura'],
+        'singular_name': 'Compra',
+        'plural_name': 'Compras'
+    }
+}
+# ==============================================================================
+
+
+@login_required
+def pos_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    productos = Producto.objects.filter(tienda=tienda_actual)
+    clientes = Cliente.objects.filter(tienda=tienda_actual)
+    
+    productos_para_busqueda = []
+    for p in productos:
+        productos_para_busqueda.append({
+            'id': p.id,
+            'text': f'{p.nombre} (Stock: {p.stock})',
+            'codigo_barras': p.codigo_barras,
+            'precio': str(p.precio) 
+        })
+
+    # ====================================================================
+    # CORRECCIÓN CLAVE: 'comprob' debe ser 'comprobante'
+    # ====================================================================
+    ultimas_ventas_detalles = DetalleComprobante.objects.filter(
+        comprobante__tienda=tienda_actual
+    ).select_related(
+        'comprobante__cliente', 'producto' # AHORA ES 'comprobante__cliente'
+    ).order_by('-comprobante__fecha_emision')[:5]
+
+    # Calculamos el total de cada línea para mostrarlo en la tabla
+    for detalle in ultimas_ventas_detalles:
+        precio_a_usar = detalle.precio_unitario_con_igv or (detalle.precio_unitario * Decimal('1.18'))
+        detalle.total_item = precio_a_usar * detalle.cantidad
+
+    contexto = {
+        'productos_json': json.dumps(productos_para_busqueda),
+        'clientes': clientes,
+        'ultimas_ventas': ultimas_ventas_detalles,
+        'tienda_actual': tienda_actual,
+    }
+    
+    return render(request, 'inventario/pos.html', contexto)
+
+
+@login_required
+def emitir_comprobante_y_preparar_impresion_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard') # Redirige
+
+    # Usamos messages.error en lugar de una variable local
+    
+    productos = Producto.objects.filter(tienda=tienda_actual)
+    clientes = Cliente.objects.filter(tienda=tienda_actual)
+    # Si ultimas_ventas es una tabla en el template, asegúrate de que sea filtrada por tienda.
+    # Si no la usas, puedes eliminarla.
+    # ultimas_ventas = Venta.objects.filter(tienda=tienda_actual).order_by('-fecha_de_venta')[:5] 
+
+    productos_para_busqueda = []
+    for p in productos:
+        productos_para_busqueda.append({
+            'id': p.id,
+            'text': f'{p.nombre} (Stock: {p.stock})',
+            'codigo_barras': p.codigo_barras,
+            'stock': p.stock,
+            'precio': float(p.precio)
+        })
+
+    if request.method == 'POST':
+        try:
+            cliente_id = request.POST.get('cliente_id')
+            observaciones_venta = request.POST.get('observaciones', '')
+            tipo_comprobante = request.POST.get('tipo_comprobante')
+            
+            # Asumo que esta vista es para UNA sola venta/producto por POST.
+            # Si es para múltiples, necesitarías una estructura similar a emitir_comprobante_ajax_view
+            producto_id = request.POST.get('producto_id')
+            cantidad_vendida = int(request.POST.get('cantidad', 1))
+
+            producto = get_object_or_404(Producto, id=producto_id, tienda=tienda_actual)
+            cliente_seleccionado = None
+            if cliente_id:
+                cliente_seleccionado = get_object_or_404(Cliente, id=cliente_id, tienda=tienda_actual)
+
+            with transaction.atomic():
+                if producto.stock < cantidad_vendida:
+                    raise ValueError(f'Stock insuficiente para {producto.nombre}.')
+                
+                producto.stock -= cantidad_vendida
+                producto.save()
+                
+                precio_final_unitario = producto.precio
+                total_final_venta = precio_final_unitario * Decimal(cantidad_vendida)
+                tasa_igv = Decimal('1.18')
+                subtotal_venta = (total_final_venta / tasa_igv).quantize(Decimal('0.01'))
+                igv_monto = total_final_venta - subtotal_venta
+                
+                comprobante = Comprobante.objects.create(
+                    tienda=tienda_actual,
+                    tipo_comprobante=tipo_comprobante,
+                    serie='B001' if tipo_comprobante == 'BOLETA' else 'F001',
+                    cliente=cliente_seleccionado,
+                    subtotal=subtotal_venta,
+                    igv=igv_monto,
+                    total_final=total_final_venta,
+                    observaciones=observaciones_venta,
+                )
+
+                precio_unitario_sin_igv = (precio_final_unitario / tasa_igv).quantize(Decimal('0.01'))
+                
+                DetalleComprobante.objects.create(
+                    comprobante=comprobante,
+                    producto=producto,
+                    cantidad=cantidad_vendida,
+                    precio_unitario=precio_unitario_sin_igv,
+                    costo_unitario=producto.costo,
+                    subtotal=subtotal_venta,
+                    precio_unitario_con_igv=precio_final_unitario # Asegúrate de guardar el precio con IGV también
+                )
+                
+                messages.success(request, 'Comprobante emitido con éxito y stock actualizado.')
+                return redirect('inventario:vista_ticket_comprobante', comprobante_id=comprobante.id)
+
+        except (Producto.DoesNotExist, Cliente.DoesNotExist):
+            messages.error(request, "Error: El producto o cliente no pertenece a tu tienda.")
+        except ValueError as e:
+            messages.error(request, f'Error de stock o cantidad: {e}')
+        except Exception as e:
+            messages.error(request, f'Ocurrió un error al procesar la emisión: {e}')
+        
+    contexto = {
+        'productos_json': json.dumps(productos_para_busqueda),
+        'clientes': clientes,
+        # 'ultimas_ventas': ultimas_ventas, # Ya no es necesario si no lo usas en el template
+    }
+    return render(request, 'inventario/pos.html', contexto)
+
+
+@login_required
+def vista_para_impresion_basica(request, comprobante_id):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    comprobante = get_object_or_404(Comprobante, id=comprobante_id, tienda=tienda_actual)
+
+    return render(request, 'inventario/comprobante_ticket.html', {'comprobante': comprobante})
+
+
+@login_required
+def registrar_compra_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    form = CompraForm(tienda=tienda_actual) 
+
+    if request.method == 'POST':
+        # La lógica de importación masiva de compras se ha movido a `importar_datos_view`.
+        # Esta sección de código de tu `views.py` debe ser eliminada si no la usas para otra cosa:
+        # if 'archivo_excel' in request.FILES:
+        #    ...
+        #    pass 
+        # else: # Este else contiene tu lógica de registro de una sola compra.
+        
+        # Lógica para el registro de una sola compra (la que ya tenías)
+        form = CompraForm(request.POST, tienda=tienda_actual)
+        if form.is_valid():
+            try:
+                compra = form.save(commit=False)
+                compra.tienda = tienda_actual # Asegura la asignación de la tienda
+                
+                # Actualizamos el stock
+                producto = compra.producto
+                # Verificación de que el producto pertenece a la tienda
+                if producto.tienda != tienda_actual:
+                    raise ValueError(f"El producto '{producto.nombre}' no pertenece a tu tienda.")
+                
+                producto.stock += compra.cantidad
+                producto.save()
+                
+                compra.save()
+                messages.success(request, f'Compra de {compra.cantidad} x {producto.nombre} registrada.')
+                return redirect('inventario:registrar_compra')
+            except Exception as e:
+                messages.error(request, f'Error al registrar la compra: {e}')
+    
+    proveedores = Proveedor.objects.filter(tienda=tienda_actual)
+    productos = Producto.objects.filter(tienda=tienda_actual)
+    
+    contexto = {
+        'form': form,
+        'proveedores': proveedores,
+        'productos': productos,
+    }
+    return render(request, 'inventario/registrar_compra.html', contexto)
+
+
+def portal_view(request):
+    return render(request, 'inventario/portal.html')
+
+@login_required
+def reporte_stock_bajo_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    umbral_stock_bajo = 5 
+    productos_bajos_stock = Producto.objects.filter(stock__lte=umbral_stock_bajo, tienda=tienda_actual).order_by('stock')
+    chart_labels = [producto.nombre for producto in productos_bajos_stock]
+    chart_data = [producto.stock for producto in productos_bajos_stock]
+    contexto = {
+        'productos': productos_bajos_stock,
+        'umbral': umbral_stock_bajo,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_data': json.dumps(chart_data),
+    }
+    return render(request, 'inventario/reporte_stock_bajo.html', contexto)
+
+@login_required
+def reporte_ventas_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    fecha_inicio_str = request.GET.get('fecha_inicio')
+    fecha_fin_str = request.GET.get('fecha_fin')
+
+    fecha_fin_default = timezone.localdate()
+    fecha_inicio_default = fecha_fin_default - timedelta(days=6)
+    
+    # Manejo de fechas seguro
+    try:
+        fecha_inicio_obj = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else fecha_inicio_default
+        fecha_fin_obj = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date() if fecha_fin_str else fecha_fin_default
+    except ValueError:
+        messages.error(request, "Formato de fecha inválido. Usa YYYY-MM-DD.")
+        fecha_inicio_obj = fecha_inicio_default
+        fecha_fin_obj = fecha_fin_default
+
+    fecha_inicio_dt = make_aware(datetime.combine(fecha_inicio_obj, time.min))
+    fecha_fin_dt = make_aware(datetime.combine(fecha_fin_obj, time.max))
+
+    # 1. Obtenemos los COMPROBANTES para los totales y gráficos
+    comprobantes_periodo = Comprobante.objects.filter(
+        tienda=tienda_actual, 
+        fecha_emision__range=(fecha_inicio_dt, fecha_fin_dt),
+        estado='EMITIDO'
+    ).prefetch_related('detalles')
+
+    # 2. Obtenemos los DETALLES para la tabla inferior, es más preciso
+    detalles_periodo = DetalleComprobante.objects.filter(
+        comprobante__in=comprobantes_periodo
+    ).select_related('producto') # Aquí ya está bien, es producto no comprob__producto
+
+    # 3. Calcular tarjetas de totales
+    total_ventas = comprobantes_periodo.aggregate(total=Sum('total_final'))['total'] or 0
+    total_costos = sum(d.costo_unitario * d.cantidad for d in detalles_periodo)
+    ganancia_bruta = total_ventas - total_costos
+
+    # 4. Calcular datos para los gráficos
+    daily_summary = {}
+    current_date = fecha_inicio_obj
+    while current_date <= fecha_fin_obj:
+        daily_summary[current_date.strftime('%Y-%m-%d')] = {'ventas': 0.0, 'costos': 0.0, 'ganancias': 0.0}
+        current_date += timedelta(days=1)
+
+    for comp in comprobantes_periodo:
+        dia_str = timezone.localtime(comp.fecha_emision).date().strftime('%Y-%m-%d')
+        costo_comprobante = sum(d.costo_unitario * d.cantidad for d in comp.detalles.all())
+        if dia_str in daily_summary:
+            daily_summary[dia_str]['ventas'] += float(comp.total_final)
+            daily_summary[dia_str]['costos'] += float(costo_comprobante)
+            daily_summary[dia_str]['ganancias'] += float(comp.total_final - costo_comprobante)
+
+    # 5. Preparar datos para la tabla de detalles
+    for detalle in detalles_periodo:
+        detalle.precio_unitario_display = detalle.precio_unitario * Decimal('1.18')
+        detalle.costo_unitario_display = detalle.costo_unitario
+        detalle.total_venta = detalle.precio_unitario_display * detalle.cantidad
+        detalle.ganancia = (detalle.precio_unitario_display - detalle.costo_unitario_display) * detalle.cantidad
+
+    # El resto de la lógica para los gráficos
+    sorted_date_strings = sorted(daily_summary.keys())
+    chart_labels = [datetime.strptime(d, '%Y-%m-%d').strftime('%d/%m') for d in sorted_date_strings]
+    sales_data = [daily_summary[d]['ventas'] for d in sorted_date_strings]
+    costs_data = [daily_summary[d]['costos'] for d in sorted_date_strings]
+    profits_data = [daily_summary[d]['ganancias'] for d in sorted_date_strings]
+
+    contexto = {
+        'detalles_ventas': detalles_periodo,
+        'total_ventas': total_ventas,
+        'total_costos': total_costos,
+        'ganancia_bruta': ganancia_bruta,
+        'fecha_inicio': fecha_inicio_obj,
+        'fecha_fin': fecha_fin_obj,
+        'chart_labels': json.dumps(chart_labels),
+        'sales_data': json.dumps(sales_data),
+        'costs_data': json.dumps(costs_data),
+        'profits_data': json.dumps(profits_data),
+    }
+    return render(request, 'inventario/reporte_ventas.html', contexto)
+
+@login_required
+def reporte_stock_actual_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    productos = Producto.objects.filter(tienda=tienda_actual).order_by('nombre')
+    
+    valor_total_inventario = 0
+    for p in productos:
+        p.valor_stock = p.stock * p.costo
+        valor_total_inventario += p.valor_stock
+
+    contexto = {
+        'productos': productos,
+        'valor_total_inventario': valor_total_inventario,
+    }
+    return render(request, 'inventario/reporte_stock_actual.html', contexto)
+
+
+# === VISTAS NUEVAS PARA EL PANEL DE CLIENTE ===
+
+def registro_view(request):
+    if request.method == 'POST':
+        form = RegistroTiendaForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    nuevo_usuario = User.objects.create_user(username=data['username'], email=data['email'], password=data['password'])
+                    Tienda.objects.create(propietario=nuevo_usuario, nombre=data['nombre_tienda'], ruc=data['ruc_tienda'])
+                messages.success(request, "¡Registro exitoso! Ya puedes iniciar sesión.")
+                return redirect('inventario:login') # Asumo que tienes una URL para el login
+            except Exception as e:
+                form.add_error(None, f"Ocurrió un error al registrar: {e}")
+                messages.error(request, f"Ocurrió un error al registrar: {e}")
+    else:
+        form = RegistroTiendaForm()
+    return render(request, 'inventario/registro.html', {'form': form})
+
+@login_required
+def dashboard_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard') # Puedes redirigir a un login o página de error
+
+    hoy = timezone.localdate()
+
+    ventas_hoy = Comprobante.objects.filter(
+        tienda=tienda_actual, 
+        fecha_emision__date=hoy,
+        estado='EMITIDO'
+    )
+    ventas_hoy_monto = ventas_hoy.aggregate(total=Sum('total_final'))['total'] or Decimal('0.00')
+    total_ventas_hoy = ventas_hoy.count()
+
+    productos_bajo_stock = Producto.objects.filter(tienda=tienda_actual, stock__lte=5).count()
+    
+    contexto = {
+        'tienda': tienda_actual,
+        'ventas_hoy_monto': ventas_hoy_monto,
+        'total_ventas_hoy': total_ventas_hoy,
+        'productos_bajo_stock': productos_bajo_stock,
+    }
+    return render(request, 'inventario/dashboard.html', contexto)
+
+@login_required
+def gestion_lista_view(request, modelo):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    Modelos = {
+        'productos': Producto, 
+        'clientes': Cliente, 
+        'proveedores': Proveedor, 
+        'compras': Compra,
+        'comprobantes': Comprobante,
+    }
+    
+    # La lógica de importación masiva se ha movido a `importar_datos_view`.
+    # Asegúrate de que esta sección de tu código no contenga lógica de importación masiva.
+    
+    Modelo = Modelos.get(modelo)
+    if not Modelo: 
+        messages.error(request, "Módulo no encontrado.")
+        return redirect('inventario:dashboard') # Redirige a un lugar seguro
+
+    queryset = Modelo.objects.filter(tienda=tienda_actual).order_by('-id')
+    
+    contexto = {
+        'objetos': queryset, 
+        'modelo_nombre_plural': Modelo._meta.verbose_name_plural, 
+        'modelo_slug': modelo
+    }
+    return render(request, 'inventario/gestion_lista.html', contexto)
+
+
+@login_required
+def gestion_crear_view(request, modelo):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    Modelos = {'productos': (Producto, ProductoForm), 'clientes': (Cliente, ClienteForm), 'proveedores': (Proveedor, ProveedorForm), 'compras': (Compra, CompraForm)}
+    if modelo not in Modelos: 
+        messages.error(request, "Módulo no encontrado.")
+        return redirect('inventario:dashboard')
+
+    Modelo, Formulario = Modelos[modelo]
+    form_kwargs = {}
+    if modelo == 'compras': form_kwargs['tienda'] = tienda_actual # Pasa la tienda al formulario de Compra
+
+    if request.method == 'POST':
+        form = Formulario(request.POST, **form_kwargs)
+        if form.is_valid():
+            instancia = form.save(commit=False)
+            instancia.tienda = tienda_actual # Asigna la tienda al objeto ANTES de guardar
+            instancia.save()
+            messages.success(request, f"{Modelo._meta.verbose_name} creado exitosamente.")
+            return redirect('inventario:gestion_lista', modelo=modelo)
+        else:
+            messages.error(request, "Por favor, corrige los errores en el formulario.")
+    else:
+        form = Formulario(**form_kwargs)
+    
+    contexto = {
+        'form': form, 
+        'modelo_nombre': Modelo._meta.verbose_name, 
+        'modelo_slug': modelo, 
+        'editando': False
+    }
+    return render(request, 'inventario/gestion_form.html', contexto)
+
+
+@login_required
+def gestion_editar_view(request, modelo, pk):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    Modelos = {'productos': (Producto, ProductoForm), 'clientes': (Cliente, ClienteForm), 'proveedores': (Proveedor, ProveedorForm), 'compras': (Compra, CompraForm)}
+    if modelo not in Modelos: 
+        messages.error(request, "Módulo no encontrado.")
+        return redirect('inventario:dashboard')
+
+    Modelo, Formulario = Modelos[modelo]
+    instancia = get_object_or_404(Modelo, pk=pk, tienda=tienda_actual) # ¡IMPORTANTE! Filtra por tienda
+
+    form_kwargs = {'instance': instancia}
+    if modelo == 'compras': form_kwargs['tienda'] = tienda_actual # Pasa la tienda al formulario de Compra
+
+    if request.method == 'POST':
+        form = Formulario(request.POST, **form_kwargs)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"{Modelo._meta.verbose_name} actualizado exitosamente.")
+            return redirect('inventario:gestion_lista', modelo=modelo)
+        else:
+            messages.error(request, "Por favor, corrige los errores en el formulario.")
+    else:
+        form = Formulario(**form_kwargs)
+    
+    contexto = {
+        'form': form, 
+        'modelo_nombre': Modelo._meta.verbose_name, 
+        'modelo_slug': modelo, 
+        'editando': True
+    }
+    return render(request, 'inventario/gestion_form.html', contexto)
+
+@login_required
+def exportar_productos_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    producto_resource = ProductoResource()
+    queryset = Producto.objects.filter(tienda=tienda_actual) # ¡Filtrado por tienda!
+    dataset = producto_resource.export(queryset)
+    
+    response = HttpResponse(dataset.xlsx, content_type='application/vnd.ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="mis_productos.xlsx"'
+    return response
+
+# REFACTORIZADA: Esta vista ahora es más genérica y reemplaza las descargas de plantillas individuales
+@login_required
+def descargar_plantilla_view(request, model_name): # Acepta model_name desde la URL
+    try:
+        tienda_actual = request.user.tienda # Asegura que el usuario tiene tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    # Usa el diccionario IMPORT_TYPES para obtener los headers
+    config = IMPORT_TYPES.get(model_name)
+    if not config:
+        messages.error(request, f"No hay una plantilla definida para el modelo '{model_name}'.")
+        return redirect('inventario:dashboard') # Redirige a un lugar seguro
+
+    headers = config['template_headers']
+    
+    workbook = openpyxl.Workbook()
+    ws = workbook.active
+    ws.title = f"Plantilla de {config['singular_name']}"
+    ws.append(headers)
+
+    # Añadir ejemplos según el tipo de plantilla
+    if model_name == 'clientes':
+        ws.append(['Piera Juarez (Ejemplo)', '12345678', '999999999', 'piera@ejemplo.com', 'https://ejemplo.com'])
+    elif model_name == 'productos':
+        # Asumiendo un nombre y un código de barras para el ejemplo
+        ws.append(['Producto Ejemplo A', 'ABC-001', '100', '10.50', '5.00'])
+    elif model_name == 'proveedores':
+        ws.append(['Proveedor XYZ S.A.C. (Ejemplo)', '20100113610', 'AV. NICOLAS AYLLON 398', '987654321', 'contacto@proveedor.com', 'https://proveedor.com'])
+    elif model_name == 'compras':
+        # ruc_proveedor, codigo_barras_producto, cantidad, costo_total, fecha_de_compra, numero_factura
+        ws.append(['20100113610', 'ABC-001', '50', '250.00', '2025-07-21', 'FACT-001'])
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="plantilla_{model_name}.xlsx"'
+    workbook.save(response)
+    
+    return response
+
+
+# ==============================================================================
+# VISTA GENERALIZADA PARA IMPORTACIÓN MASIVA (Reemplaza importar_productos_view, importar_clientes_view, importar_proveedores_view)
+# ==============================================================================
+@login_required
+def importar_datos_view(request, data_type): # data_type: 'clientes', 'productos', 'proveedores', 'compras'
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    if data_type not in IMPORT_TYPES:
+        messages.error(request, 'Tipo de importación inválido.')
+        return redirect('inventario:dashboard') # O a una URL base de importación
+
+    config = IMPORT_TYPES[data_type]
+    ResourceClass = config['resource']
+    singular_name = config['singular_name']
+    plural_name = config['plural_name']
+    template_headers = config['template_headers']
+
+    if request.method == 'POST':
+        file = request.FILES.get('excel_file') # Asegúrate que el nombre del campo file en el HTML sea 'excel_file'
+        if not file:
+            messages.error(request, f'Por favor, selecciona un archivo de {plural_name} para importar.')
+            return redirect('inventario:importar_datos', data_type=data_type)
+
+        dataset = Dataset()
+        try:
+            if file.name.endswith('.csv'):
+                dataset.load(file.read().decode('utf-8'), format='csv')
+            elif file.name.endswith(('.xls', '.xlsx')):
+                dataset.load(file.read(), format='xlsx')
+            else:
+                messages.error(request, 'Formato de archivo no soportado. Por favor, sube un archivo CSV o Excel (.xls, .xlsx).')
+                return redirect('inventario:importar_datos', data_type=data_type)
+
+            data_resource = ResourceClass()
+            
+            # Pasa la instancia de Tienda al Resource a través de kwargs
+            # Esto será capturado por el método before_import_row en BaseResource
+            result = data_resource.import_data(dataset, dry_run=True, raise_errors=False, 
+                                               tienda_instance=tienda_actual) # ¡Pasamos la tienda!
+
+            if result.has_errors():
+                for error in result.row_errors():
+                    # error[0] es el índice de la fila (0-indexed), error[1] es una lista de ImportError
+                    row_number = error[0] + 1 # Convertir a 1-indexed
+                    for field_error in error[1]:
+                        # field_error.error es el mensaje de error, field_error.field es el campo
+                        error_message = f"Fila {row_number}: {field_error.error}"
+                        if field_error.field:
+                            error_message += f" (Columna: {field_error.field.column_name})"
+                        messages.error(request, error_message)
+                for error in result.base_errors:
+                    messages.error(request, f"Error general: {error.error}")
+                messages.error(request, f'¡Importación de {plural_name} fallida! Por favor, corrige los errores en tu archivo.')
+                
+                # Renderiza la misma página con los errores detallados
+                return render(request, 'inventario/importar_datos.html', {
+                    'messages': messages.get_messages(request), # Asegura que los mensajes se muestren
+                    'data_type_display': plural_name,
+                    'template_headers': template_headers,
+                    'dry_run_result': result, # Pasa el resultado del dry_run para mostrar más detalles
+                    'data_type': data_type
+                })
+            else:
+                # Si no hay errores en el dry_run, se procede con la importación real
+                # Pasa la instancia de Tienda nuevamente
+                result = data_resource.import_data(dataset, dry_run=False, 
+                                                   tienda_instance=tienda_actual) 
+                
+                imported_count = result.new_objects.count()
+                updated_count = result.update_objects.count()
+                skipped_count = result.skip_row_count
+
+                messages.success(request, f'Importación de {plural_name} completada.')
+                messages.info(request, f'✔️ Nuevos {singular_name}s: {imported_count}.')
+                messages.info(request, f'🔄 {singular_name}s actualizados: {updated_count}.')
+                if skipped_count > 0:
+                    messages.warning(request, f'⚠️ {singular_name}s omitidos (sin cambios o con errores leves): {skipped_count}.')
+                
+                return redirect('inventario:importar_datos', data_type=data_type)
+
+        except Exception as e:
+            messages.error(request, f'Ocurrió un error inesperado durante la importación: {e}')
+            return redirect('inventario:importar_datos', data_type=data_type)
+
+    # Para el método GET, simplemente renderiza el formulario de subida
+    return render(request, 'inventario/importar_datos.html', {
+        'data_type_display': plural_name,
+        'template_headers': template_headers,
+        'data_type': data_type
+    })
+
+# ==============================================================================
+
+
+@login_required
+@csrf_exempt
+def emitir_comprobante_ajax_view(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    try:
+        tienda_actual = request.user.tienda
+        data = json.loads(request.body)
+        
+        cliente_id = data.get('cliente_id')
+        observaciones_venta = data.get('observaciones', '')
+        tipo_comprobante = data.get('tipo_comprobante')
+        cart_items = data.get('cart')
+
+        if not cart_items:
+            return JsonResponse({'error': 'El carrito está vacío.'}, status=400)
+
+        with transaction.atomic():
+            total_final_venta = sum(Decimal(item['price']) * int(item['quantity']) for item in cart_items)
+            
+            tasa_igv_decimal = Decimal('0.18')
+            subtotal_venta = (total_final_venta / (1 + tasa_igv_decimal)).quantize(Decimal('0.01'), rounding='ROUND_HALF_UP')
+            igv_monto = (subtotal_venta * tasa_igv_decimal).quantize(Decimal('0.01'), rounding='ROUND_HALF_UP')
+
+            # Pequeño ajuste para asegurar que subtotal + igv = total_final debido a redondeo
+            # if subtotal_venta + igv_monto != total_final_venta:
+            #     subtotal_venta = total_final_venta - igv_monto # Ajusta el subtotal si hay una mínima diferencia por redondeo
+
+            cliente_seleccionado = None
+            if cliente_id:
+                cliente_seleccionado = get_object_or_404(Cliente, id=cliente_id, tienda=tienda_actual)
+
+            comprobante = Comprobante.objects.create(
+                tienda=tienda_actual,
+                tipo_comprobante=tipo_comprobante,
+                serie='B001' if tipo_comprobante == 'BOLETA' else 'F001',
+                cliente=cliente_seleccionado,
+                subtotal=subtotal_venta,
+                igv=igv_monto,
+                total_final=total_final_venta,
+                observaciones=observaciones_venta,
+            )
+
+            for item in cart_items:
+                producto = get_object_or_404(Producto, id=item['id'], tienda=tienda_actual) # ¡Filtrado por tienda!
+                cantidad_vendida = int(item['quantity'])
+                
+                if producto.stock < cantidad_vendida:
+                    raise ValueError(f"Stock insuficiente para {producto.nombre}.")
+
+                producto.stock -= cantidad_vendida
+                producto.save()
+
+                precio_unitario_con_igv = Decimal(item['price'])
+                precio_unitario_sin_igv = (precio_unitario_con_igv / (1 + tasa_igv_decimal)).quantize(Decimal('0.01'), rounding='ROUND_HALF_UP')
+
+                DetalleComprobante.objects.create(
+                    comprobante=comprobante,
+                    producto=producto,
+                    cantidad=cantidad_vendida,
+                    precio_unitario=precio_unitario_sin_igv,
+                    precio_unitario_con_igv=precio_unitario_con_igv,
+                    costo_unitario=producto.costo,
+                    subtotal=precio_unitario_sin_igv * cantidad_vendida,
+                )
+
+            nueva_venta_data = {
+                'cliente': cliente_seleccionado.nombre_completo if cliente_seleccionado else "General",
+                'producto': f"{cart_items[0]['name']} y más..." if len(cart_items) > 1 else cart_items[0]['name'],
+                'cantidad': sum(int(item['quantity']) for item in cart_items),
+                'total': f'{total_final_venta:.2f}',
+                'fecha': timezone.localtime(comprobante.fecha_emision).strftime("%d/%m/%Y %H:%M"),
+                'observaciones': observaciones_venta or "--"
+            }
+
+            return JsonResponse({
+                'comprobante_id': comprobante.id,
+                'nueva_venta': nueva_venta_data
+            })
+        
+    except ValueError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Ocurrió un error inesperado: {e}'}, status=500)
+
+
+@login_required
+def exportar_comprobantes_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    # Asegúrate que ComprobanteResource esté importado y definido correctamente en resources.py
+    # Si tienes este recurso, DESCOMENTA las siguientes líneas:
+    # comprobante_resource = ComprobanteResource() 
+    # queryset = Comprobante.objects.filter(tienda=tienda_actual) # ¡Filtrado por tienda!
+    # dataset = comprobante_resource.export(queryset)
+    # response = HttpResponse(dataset.xlsx, content_type='application/vnd.ms-excel')
+    # response['Content-Disposition'] = 'attachment; filename="reporte_comprobantes.xlsx"'
+    # return response
+    
+    # Si ComprobanteResource NO está definido, esta línea se ejecutará:
+    messages.error(request, "Funcionalidad de exportación de comprobantes no implementada completamente o recurso no disponible. Asegúrate de tener ComprobanteResource en resources.py y descomenta el código.")
+    return redirect('inventario:dashboard')
+
+
+@login_required
+def descargar_comprobante_pdf_view(request, comprobante_id):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    comprobante = get_object_or_404(Comprobante, id=comprobante_id, tienda=tienda_actual) # ¡Filtrado por tienda!
+
+    template_path = 'inventario/comprobante_ticket.html'
+    template = get_template(template_path)
+    context = {'comprobante': comprobante, 'tienda': tienda_actual} # Pasa la tienda también al contexto del PDF
+    html = template.render(context)
+    
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
+    
+    if not pdf.err:
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        filename = f"{comprobante.get_tipo_comprobante_display()}_{comprobante.serie}-{comprobante.numero}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+        
+    messages.error(request, "Error al generar el PDF.")
+    return redirect('inventario:gestion_lista', modelo='comprobantes') # Redirige a un lugar seguro
+
+
+@login_required
+def eliminar_venta_view(request, comprobante_id):
+    if request.method == 'POST':
+        try:
+            tienda_actual = request.user.tienda
+            comprobante_a_eliminar = get_object_or_404(Comprobante, id=comprobante_id, tienda=tienda_actual) # ¡Filtrado por tienda!
+
+            with transaction.atomic():
+                for detalle in comprobante_a_eliminar.detalles.all():
+                    producto = detalle.producto
+                    # Asegurarse de que el producto pertenece a la misma tienda antes de actualizar stock
+                    if producto.tienda != tienda_actual:
+                        raise ValueError(f"Intento de eliminar venta que involucra un producto de otra tienda ({producto.nombre}).")
+                    
+                    producto.stock += detalle.cantidad
+                    producto.save()
+                    print(f"Stock devuelto: {detalle.cantidad} a '{producto.nombre}'. Nuevo stock: {producto.stock}")
+
+                comprobante_a_eliminar.delete()
+                messages.success(request, f"La venta {comprobante_a_eliminar.serie}-{comprobante_a_eliminar.numero} ha sido eliminada y el stock ha sido restaurado.")
+
+        except Tienda.DoesNotExist:
+            messages.error(request, "No tienes una tienda asignada.")
+        except Exception as e:
+            messages.error(request, f"Ocurrió un error al intentar eliminar la venta: {e}")
+            
+        return redirect('inventario:gestion_lista', modelo='comprobantes')
+    else:
+        messages.warning(request, "Acceso no permitido. Usa un método POST para eliminar.")
+        return redirect('inventario:gestion_lista', modelo='comprobantes')
+
+@login_required
+def exportar_reporte_ventas_excel_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    # Obtenemos las fechas del filtro desde los parámetros GET de la URL
+    fecha_inicio_str = request.GET.get('fecha_inicio')
+    fecha_fin_str = request.GET.get('fecha_fin')
+
+    # Lógica de fechas (similar a la vista del reporte)
+    fecha_fin_default = timezone.localdate()
+    fecha_inicio_default = fecha_fin_default - timedelta(days=6)
+    
+    try:
+        fecha_inicio_obj = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else fecha_inicio_default
+        fecha_fin_obj = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date() if fecha_fin_str else fecha_fin_default
+    except ValueError:
+        messages.error(request, "Formato de fecha inválido. Usa YYYY-MM-DD.")
+        fecha_inicio_obj = fecha_inicio_default
+        fecha_fin_obj = fecha_fin_default
+
+    fecha_inicio_dt = make_aware(datetime.combine(fecha_inicio_obj, time.min))
+    fecha_fin_dt = make_aware(datetime.combine(fecha_fin_obj, time.max))
+
+    # Buscamos los detalles de venta que coinciden con el filtro
+    queryset = DetalleComprobante.objects.filter(
+        comprobante__tienda=tienda_actual, # ¡Filtrado por tienda!
+        comprobante__fecha_emision__range=(fecha_inicio_dt, fecha_fin_dt)
+    ).order_by('comprobante__fecha_emision')
+
+    # Asegúrate que DetalleComprobanteResource esté importado y definido correctamente en resources.py
+    # Si tienes este recurso, DESCOMENTA las siguientes líneas:
+    # detalle_resource = DetalleComprobanteResource() 
+    # dataset = detalle_resource.export(queryset)
+    # response = HttpResponse(dataset.xlsx, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    # response['Content-Disposition'] = f'attachment; filename="Reporte_Ventas_{fecha_inicio_obj}_al_{fecha_fin_obj}.xlsx"'
+    # return response
+    
+    # Si DetalleComprobanteResource NO está definido, esta línea se ejecutará:
+    messages.error(request, "Funcionalidad de exportación de reporte de ventas no implementada completamente o recurso no disponible. Asegúrate de tener DetalleComprobanteResource en resources.py y descomenta el código.")
+    return redirect('inventario:dashboard')
+
+
+@login_required
+def exportar_stock_actual_excel_view(request):
+    try:
+        tienda_actual = request.user.tienda
+    except Tienda.DoesNotExist:
+        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+        return redirect('inventario:dashboard')
+
+    # Buscamos todos los productos de la tienda actual
+    queryset = Producto.objects.filter(tienda=tienda_actual).order_by('nombre') # ¡Filtrado por tienda!
+
+    # Asegúrate que StockActualResource esté importado y definido correctamente en resources.py
+    # Si tienes este recurso, DESCOMENTA las siguientes líneas:
+    # stock_resource = StockActualResource() 
+    # dataset = stock_resource.export(queryset)
+    # # Creamos y devolvemos la respuesta con el archivo Excel
+    # response = HttpResponse(dataset.xlsx, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    # response['Content-Disposition'] = 'attachment; filename="Reporte_Stock_Actual.xlsx"'
+    # return response
+    
+    # Si StockActualResource NO está definido, esta línea se ejecutará:
+    messages.error(request, "Funcionalidad de exportación de stock actual no implementada completamente o recurso no disponible. Asegúrate de tener StockActualResource en resources.py y descomenta el código.")
+    return redirect('inventario:dashboard')
+
+@login_required
+def log_logueos_view(request):
+    # === CAMBIO: VERIFICA SI EL USUARIO ES SUPERUSUARIO ===
+    if not request.user.is_superuser:
+        messages.error(request, "Acceso no autorizado. Esta sección es solo para el administrador del sistema.")
+        return redirect('inventario:dashboard')
+
+    logs = LoginLog.objects.all()
+
+    # --- Filtros ---
+    username_filter = request.GET.get('username', '')
+    start_date_str = request.GET.get('start_date', '')
+    end_date_str = request.GET.get('end_date', '')
+    status_filter = request.GET.get('status', '') # 'all', 'success', 'failed'
+
+    if username_filter:
+        logs = logs.filter(username_tried__icontains=username_filter)
+
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            logs = logs.filter(timestamp__date__gte=start_date)
+        except ValueError:
+            messages.error(request, "Formato de fecha de inicio inválido (YYYY-MM-DD).")
+
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            logs = logs.filter(timestamp__date__lte=end_date)
+        except ValueError:
+            messages.error(request, "Formato de fecha de fin inválido (YYYY-MM-DD).")
+    
+    if status_filter == 'success':
+        logs = logs.filter(is_successful=True)
+    elif status_filter == 'failed':
+        logs = logs.filter(is_successful=False)
+
+    # Conteo de totales (útil para gerencia)
+    total_logins = logs.count()
+    successful_logins = logs.filter(is_successful=True).count()
+    failed_logins = logs.filter(is_successful=False).count()
+    
+    context = {
+        'logs': logs,
+        'username_filter': username_filter,
+        'start_date_filter': start_date_str,
+        'end_date_filter': end_date_str,
+        'status_filter': status_filter,
+        'total_logins': total_logins,
+        'successful_logins': successful_logins,
+        'failed_logins': failed_logins,
+    }
+    return render(request, 'inventario/log_logueos.html', context)

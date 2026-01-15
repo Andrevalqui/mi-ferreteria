@@ -1,0 +1,167 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Reporte de Ventas - La Esquina del Shot{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h1 class="h3 mb-0 fw-bold">
+            Reporte de Ventas 
+            {% if fecha_inicio == fecha_fin %}
+                del Día ({{ fecha_inicio|date:"d/m/Y" }})
+            {% else %}
+                del {{ fecha_inicio|date:"d/m/Y" }} al {{ fecha_fin|date:"d/m/Y" }}
+            {% endif %}
+        </h1>
+    </div>
+    <div class="card-body">
+
+        <form method="GET" class="row g-3 align-items-end bg-light p-3 rounded mb-4 border">
+            <div class="col-md-4"> <label for="fecha_inicio" class="form-label fw-bold">Fecha de Inicio:</label>
+                <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4"> <label for="fecha_fin" class="form-label fw-bold">Fecha de Fin:</label>
+                <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+            </div>
+            <div class="col-md-2 d-grid">
+                <a href="{% url 'inventario:exportar_reporte_ventas' %}?fecha_inicio={{ fecha_inicio|date:'Y-m-d' }}&fecha_fin={{ fecha_fin|date:'Y-m-d' }}" 
+                   class="btn btn-success">
+                    <i class="fas fa-file-excel"></i> Exportar
+                </a>
+            </div>
+            </form>
+        <div class="row text-center mb-4">
+            <div class="col-md-4">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">TOTAL VENTAS</h5>
+                        <p class="card-text fs-4 fw-bold">S/ {{ total_ventas|floatformat:2 }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-danger">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">TOTAL COSTOS</h5>
+                        <p class="card-text fs-4 fw-bold">S/ {{ total_costos|floatformat:2 }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">GANANCIA BRUTA</h5>
+                        <p class="card-text fs-4 fw-bold">S/ {{ ganancia_bruta|floatformat:2 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-4">
+                <div class="card h-100 shadow-sm"><div class="card-body"><canvas id="salesChart"></canvas></div></div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card h-100 shadow-sm"><div class="card-body"><canvas id="costsChart"></canvas></div></div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card h-100 shadow-sm"><div class="card-body"><canvas id="profitsChart"></canvas></div></div>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2 class="h4 mt-4 mb-3 text-center">Detalle de Ventas del Período</h2>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-light text-center">
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Precio Unit.</th>
+                        <th>Costo Unit.</th>
+                        <th>Total Venta</th>
+                        <th>Ganancia</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center">
+                    {% for detalle in detalles_ventas %}
+                    <tr>
+                        <td>{{ detalle.producto.nombre }}</td>
+                        <td>{{ detalle.cantidad }}</td>
+                        <td>S/ {{ detalle.precio_unitario_display|floatformat:2 }}</td>
+                        <td>S/ {{ detalle.costo_unitario_display|floatformat:2 }}</td>
+                        <td>S/ {{ detalle.total_venta|floatformat:2 }}</td>
+                        <td>S/ {{ detalle.ganancia|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center p-4">No se han realizado ventas en este período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const labels = JSON.parse('{{ chart_labels|safe }}');
+        const salesData = JSON.parse('{{ sales_data|safe }}');
+        const costsData = JSON.parse('{{ costs_data|safe }}');
+        const profitsData = JSON.parse('{{ profits_data|safe }}');
+
+        function createChart(ctx, chartLabel, barData, barColor, lineColor) {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: chartLabel,
+                            data: barData,
+                            backgroundColor: barColor,
+                            type: 'bar',
+                            order: 2
+                        },
+                        {
+                            label: 'Tendencia',
+                            data: barData,
+                            borderColor: lineColor,
+                            type: 'line',
+                            order: 1,
+                            pointRadius: 5,
+                            pointBackgroundColor: lineColor
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: chartLabel,
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        if (labels.length > 0) {
+            createChart(document.getElementById('salesChart'), 'Ventas Diarias (S/)', salesData, 'rgba(0, 123, 255, 0.6)', '#0056b3');
+            createChart(document.getElementById('costsChart'), 'Costos Diarios (S/)', costsData, 'rgba(220, 53, 69, 0.6)', '#8B0000');
+            createChart(document.getElementById('profitsChart'), 'Ganancias Diarias (S/)', profitsData, 'rgba(40, 167, 69, 0.6)', '#19692c');
+        }
+    });
+</script>
+{% endblock %}
