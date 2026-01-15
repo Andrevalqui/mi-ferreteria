@@ -1,0 +1,236 @@
+{% extends 'inventario/base.html' %}
+{% load static %}
+
+{% block title %}Registros de Logueos Gerencial{% endblock %}
+
+{% block extra_styles %}
+<style>
+    /* Estilos Adicionales para la Vista Gerencial de Logueos */
+    .card-header-custom {
+        background-color: #f0f2f5; /* Un gris claro para el encabezado */
+        color: #34495e; /* Texto oscuro */
+        font-weight: bold;
+        border-bottom: 1px solid #e0e6ed;
+        padding: 1rem 1.25rem;
+    }
+    .summary-card {
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); /* Sombra más pronunciada */
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        overflow: hidden; /* Para asegurar bordes redondeados */
+    }
+    .summary-card:hover {
+        transform: translateY(-5px); /* Pequeño efecto al pasar el ratón */
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+    .summary-card .card-body {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+    }
+    .summary-card .icon-circle {
+        background-color: rgba(255, 255, 255, 0.2); /* Fondo de icono semi-transparente */
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2em; /* Tamaño del icono */
+        color: rgba(255, 255, 255, 0.8);
+    }
+    .summary-card .card-title {
+        font-size: 1.1em;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        opacity: 0.9;
+    }
+    .summary-card .card-text {
+        font-size: 2.2em; /* Tamaño grande para los números */
+        font-weight: bold;
+        line-height: 1;
+    }
+
+    /* Colores específicos para las tarjetas de resumen */
+    .bg-gradient-total { background: linear-gradient(45deg, #007bff, #0056b3); } /* Azul */
+    .bg-gradient-success { background: linear-gradient(45deg, #28a745, #1d7c35); } /* Verde */
+    .bg-gradient-failed { background: linear-gradient(45deg, #dc3545, #b32b35); } /* Rojo */
+
+    /* Estilos para la tabla de registros */
+    .table-responsive-custom {
+        border-radius: 0.75rem;
+        overflow: hidden; /* Asegura que los bordes redondeados del card afecten a la tabla */
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); /* Sombra suave */
+    }
+    .table-log {
+        margin-bottom: 0; /* Elimina margen inferior de la tabla */
+    }
+    .table-log th {
+        vertical-align: middle;
+        padding: 1rem;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .table-log td {
+        vertical-align: middle;
+        padding: 0.75rem 1rem;
+        font-size: 0.95em;
+    }
+    .table-log tbody tr:last-child td {
+        border-bottom: none; /* Quita el borde de la última fila */
+    }
+    .badge {
+        font-size: 0.85em;
+        padding: 0.5em 0.8em;
+        border-radius: 0.35rem;
+    }
+
+    /* Estilos para el formulario de filtros */
+    .filter-form-card {
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    .filter-form-card .card-body {
+        padding: 20px;
+    }
+    .form-control, .form-select {
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+    }
+    .btn-primary, .btn-outline-secondary {
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">Dashboard de Registros de Logueos</h2>
+
+    {# Mensajes de Django #}
+    {% if messages %}
+        <div class="container mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {# Tarjetas de Resumen Dinámicas #}
+    <div class="row mb-5 justify-content-center">
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="card text-white bg-gradient-total summary-card">
+                <div class="card-body">
+                    <div>
+                        <h5 class="card-title">Logueos Totales</h5>
+                        <p class="card-text">{{ total_logins }}</p>
+                    </div>
+                    <div class="icon-circle"><i class="fas fa-users"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="card text-white bg-gradient-success summary-card">
+                <div class="card-body">
+                    <div>
+                        <h5 class="card-title">Éxitosos</h5>
+                        <p class="card-text">{{ successful_logins }}</p>
+                    </div>
+                    <div class="icon-circle"><i class="fas fa-check-circle"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="card text-white bg-gradient-failed summary-card">
+                <div class="card-body">
+                    <div>
+                        <h5 class="card-title">Fallidos</h5>
+                        <p class="card-text">{{ failed_logins }}</p>
+                    </div>
+                    <div class="icon-circle"><i class="fas fa-times-circle"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Formulario de Filtros #}
+    <div class="card shadow-sm mb-5 filter-form-card">
+        <div class="card-header-custom">
+            <h4 class="mb-0">Filtrar Registros</h4>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="username" class="form-label">Usuario:</label>
+                    <input type="text" class="form-control" id="username" name="username" value="{{ username_filter }}" placeholder="Nombre de usuario">
+                </div>
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">Fecha Inicio:</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date_filter }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label">Fecha Fin:</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date_filter }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="status" class="form-label">Estado:</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+                        <option value="success" {% if status_filter == 'success' %}selected{% endif %}>Éxito</option>
+                        <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Fallo</option>
+                    </select>
+                </div>
+                <div class="col-md-12 text-end">
+                    <button type="submit" class="btn btn-primary me-2"><i class="fas fa-filter"></i> Aplicar Filtros</button>
+                    <a href="{% url 'inventario:log_logueos' %}" class="btn btn-outline-secondary"><i class="fas fa-sync-alt"></i> Limpiar Filtros</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Tabla de Registros de Logueo #}
+    <div class="card shadow-sm table-responsive-custom">
+        <div class="card-header-custom">
+            <h4 class="mb-0">Detalle de Registros</h4>
+        </div>
+        <table class="table table-striped table-hover mb-0 table-log">
+            <thead class="table-dark">
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Usuario (Intentado)</th>
+                    <th>Usuario (Real)</th>
+                    <th>IP</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
+                    <td>{{ log.username_tried }}</td>
+                    <td>{{ log.user.username|default:"N/A" }}</td>
+                    <td>{{ log.ip_address|default:"Desconocida" }}</td>
+                    <td>
+                        {% if log.is_successful %}
+                            <span class="badge bg-success">Éxito</span>
+                        {% else %}
+                            <span class="badge bg-danger">Fallo</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center p-4">No hay registros de logueos para mostrar con los filtros aplicados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

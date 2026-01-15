@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Reporte de Comprobantes</title>
+    <style>
+        @page {
+            /* Se elimina la línea "size: a4;" para compatibilidad con xhtml2pdf */
+            margin: 1cm;
+        }
+        .comprobante-pagina {
+            page-break-after: always;
+        }
+    </style>
+</head>
+<body>
+    {# Recorremos cada comprobante que seleccionamos en el admin #}
+    {% for comprobante in comprobantes %}
+        <div class="comprobante-pagina">
+            {# Reutilizamos el diseño de tu comprobante individual EXACTAMENTE como está #}
+            {% include 'inventario/comprobante_imprimir_basico.html' with comprobante=comprobante %}
+        </div>
+    {% endfor %}
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importar {{ data_type_display }} - Mi ERP</title>
+    {% load static %} {# Asegúrate de que esto esté presente si usas archivos estáticos como base.css #}
+    <link rel="stylesheet" href="{% static 'css/base.css' %}"> 
+    <style>
+        /* ... (Tus estilos CSS de la respuesta anterior) ... */
+        /* Incluiré un ejemplo de estilo CSS básico que tenías */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #343a40; line-height: 1.6; }
+        .container { max-width: 900px; margin: 40px auto; padding: 30px; background: #ffffff; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        h1 { color: #0056b3; text-align: center; margin-bottom: 30px; }
+        .messages { list-style: none; padding: 0; margin-bottom: 20px; }
+        .messages li { padding: 12px 20px; margin-bottom: 10px; border-radius: 8px; font-weight: bold; display: flex; align-items: center; }
+        .messages .success { background-color: #d4edda; color: #28a745; border: 1px solid #c3e6cb; }
+        .messages .error { background-color: #f8d7da; color: #dc3545; border: 1px solid #f5c6cb; }
+        .messages .warning { background-color: #fff3cd; color: #ffc107; border: 1px solid #ffeeba; }
+        .messages .info { background-color: #d1ecf1; color: #17a2b8; border: 1px solid #bee5eb; }
+        .messages li::before { margin-right: 10px; font-size: 1.2em; }
+        .messages .success::before { content: '✔️'; }
+        .messages .error::before { content: '❌'; }
+        .messages .warning::before { content: '⚠️'; }
+        .messages .info::before { content: 'ℹ️'; }
+
+        .template-info { background-color: #e9f7fe; border-left: 5px solid #007bff; padding: 20px; margin-bottom: 30px; border-radius: 8px; }
+        .template-info p { margin-bottom: 10px; }
+        .template_headers_code_block { 
+            display: block; 
+            background-color: #f0f8ff; 
+            padding: 15px; 
+            border-radius: 6px; 
+            border: 1px dashed #a0d8ff; 
+            font-family: 'Courier New', monospace; 
+            font-size: 0.9em; 
+            color: #004085; 
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .import-form { background-color: #fefefe; padding: 25px; border-radius: 8px; border: 1px solid #e0e0e0; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #495057; }
+        input[type="file"] { 
+            display: block; 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #ced4da; 
+            border-radius: 5px; 
+            box-sizing: border-box;
+            font-size: 1em;
+            background-color: #fff;
+        }
+        input[type="file"]::file-selector-button {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 15px;
+            transition: background-color 0.2s ease;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #0056b3;
+        }
+        button[type="submit"] { 
+            background-color: #28a745; 
+            color: white; 
+            padding: 12px 25px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 1.1em; 
+            font-weight: bold;
+            transition: background-color 0.2s ease;
+            width: 100%;
+        }
+        button[type="submit"]:hover { background-color: #218838; }
+
+        .error-details { margin-top: 30px; border-top: 2px solid #dc3545; padding-top: 25px; background-color: #fff0f0; border-radius: 8px; padding: 25px; }
+        .error-details h3 { color: #dc3545; margin-bottom: 15px; }
+        .error-details ul { list-style: none; padding-left: 0; }
+        .error-details li { background-color: #ffe3e6; border: 1px solid #f5c6cb; padding: 10px 15px; margin-bottom: 10px; border-radius: 5px; font-size: 0.95em; color: #721c24; }
+        .error-details li strong { color: #721c24; }
+        .back-link { display: block; text-align: center; margin-top: 30px; font-size: 1.1em; }
+        .back-link a { color: #007bff; text-decoration: none; font-weight: bold; }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Importar {{ data_type_display }}</h1>
+
+        <ul class="messages">
+            {% if messages %}
+                {% for message in messages %}
+                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                {% endfor %}
+            {% endif %}
+        </ul>
+
+        <div class="template-info">
+            <p>Por favor, sube un archivo Excel (.xls, .xlsx) o CSV con los datos de tus **{{ data_type_display | lower }}**.</p>
+            <p>Los **encabezados esperados** en la primera fila de tu archivo son:</p>
+            <code class="template_headers_code_block">{{ template_headers|join:", " }}</code>
+            <p>Asegúrate de que los encabezados coincidan **exactamente** (incluyendo mayúsculas/minúsculas y espacios).</p>
+            <p>Puedes descargar una plantilla de ejemplo aquí: <a href="{% url 'inventario:descargar_plantilla' model_name=data_type %}" target="_blank">Descargar Plantilla de {{ data_type_display }}</a></p>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="import-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="excel_file">Selecciona el archivo de {{ data_type_display | lower }}:</label>
+                <input type="file" name="excel_file" id="excel_file" accept=".csv, .xls, .xlsx" required>
+            </div>
+            <button type="submit">Importar {{ data_type_display }}</button>
+        </form>
+
+        {% if dry_run_result %}
+            {% if dry_run_result.has_errors %}
+                <div class="error-details">
+                    <h3>Detalles de Errores Encontrados (Importación Simulada)</h3>
+                    <p>No se guardó ningún dato. Por favor, corrige los siguientes problemas en tu archivo y vuelve a intentar:</p>
+                    <ul>
+                        {% for error in dry_run_result.row_errors %}
+                            <li>
+                                <strong>Fila {{ error.0|add:1 }}:</strong> 
+                                {% for field_error in error.1 %}
+                                    {{ field_error.error }}
+                                    {% if field_error.field %} (Columna: <strong>{{ field_error.field.column_name }}</strong>){% endif %}
+                                {% endfor %}
+                            </li>
+                        {% endfor %}
+                        {% for error in dry_run_result.base_errors %}
+                            <li><strong>Error General:</strong> {{ error.error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        {% endif %}
+
+        <div class="back-link">
+            <p><a href="{% url 'inventario:gestion_lista' modelo=data_type %}">← Volver a la lista de {{ data_type_display }}</a></p>
+        </div>
+    </div>
+</body>
+</html>
