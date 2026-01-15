@@ -18,56 +18,44 @@ class ProductoResource(resources.ModelResource):
         report_skipped = False
         import_id_fields = ('id',)
 
-    # CORRECCIÓN: Agregamos 'row'
-    def before_save_instance(self, instance, row, **kwargs):
+    # FIRMA UNIVERSAL: acepta cualquier cantidad de argumentos (*args)
+    def before_save_instance(self, instance, row, *args, **kwargs):
         tienda = getattr(self, 'tienda_actual', None)
         if tienda:
             instance.tienda = tienda
-        super().before_save_instance(instance, row, **kwargs)
+        super().before_save_instance(instance, row, *args, **kwargs)
 
 class ClienteResource(resources.ModelResource):
     class Meta:
         model = Cliente
         fields = ('id', 'nombre_completo', 'dni_ruc', 'telefono', 'email', 'pagina_web')
-        export_order = fields
-        skip_unchanged = True
-        report_skipped = False
         import_id_fields = ('id',)
 
-    def before_import_row(self, row, **kwargs):
-        if 'user' in kwargs and hasattr(kwargs['user'], 'tienda'):
-            row['tienda'] = kwargs['user'].tienda.id
-        else:
-            # Si prefieres que no lance error y use la tienda de la vista:
-            pass
+    def before_save_instance(self, instance, row, *args, **kwargs):
+        tienda = getattr(self, 'tienda_actual', None)
+        if tienda:
+            instance.tienda = tienda
+        super().before_save_instance(instance, row, *args, **kwargs)
 
 class ProveedorResource(resources.ModelResource):
     class Meta:
         model = Proveedor
-        fields = ('id', 'razon_social', 'ruc', 'direccion', 'telefono', 'email', 'pagina_web', 'tienda')
-        export_order = ('id', 'razon_social', 'ruc', 'direccion', 'telefono', 'email', 'pagina_web')
-        skip_unchanged = True
-        report_skipped = False
+        fields = ('id', 'razon_social', 'ruc', 'direccion', 'telefono', 'email', 'pagina_web')
+        import_id_fields = ('id',)
 
-    def before_import_row(self, row, **kwargs):
-        if 'user' in kwargs:
-            row['tienda'] = kwargs['user'].tienda.id
+    def before_save_instance(self, instance, row, *args, **kwargs):
+        tienda = getattr(self, 'tienda_actual', None)
+        if tienda:
+            instance.tienda = tienda
+        super().before_save_instance(instance, row, *args, **kwargs)
 
 class CompraResource(resources.ModelResource):
     producto_nuevo_nombre = fields.Field(column_name='producto_nuevo_nombre', attribute='producto_nuevo_nombre')
     producto_nuevo_costo = fields.Field(column_name='producto_nuevo_costo', attribute='producto_nuevo_costo')
     producto_nuevo_precio = fields.Field(column_name='producto_nuevo_precio', attribute='producto_nuevo_precio')
 
-    producto = fields.Field(
-        attribute='producto',
-        column_name='producto_id',
-        widget=ForeignKeyWidget(Producto, 'id')
-    )
-    proveedor = fields.Field(
-        attribute='proveedor',
-        column_name='proveedor',
-        widget=CleanForeignKeyWidget(Proveedor, 'razon_social')
-    )
+    producto = fields.Field(attribute='producto', column_name='producto_id', widget=ForeignKeyWidget(Producto, 'id'))
+    proveedor = fields.Field(attribute='proveedor', column_name='proveedor', widget=CleanForeignKeyWidget(Proveedor, 'razon_social'))
 
     class Meta:
         model = Compra
@@ -80,19 +68,20 @@ class CompraResource(resources.ModelResource):
             nombre = row.get('producto_nuevo_nombre')
             costo = row.get('producto_nuevo_costo')
             precio = row.get('producto_nuevo_precio')
-            if nombre and hasattr(self, 'tienda_actual'):
+            tienda = getattr(self, 'tienda_actual', None)
+            if nombre and tienda:
                 nuevo_producto, created = Producto.objects.get_or_create(
                     nombre=nombre,
-                    tienda=self.tienda_actual,
+                    tienda=tienda,
                     defaults={'costo': costo or 0, 'precio': precio or 0, 'stock': 0}
                 )
                 row['producto_id'] = nuevo_producto.id
 
-    # CORRECCIÓN: Agregamos 'row' y corregimos sangría
-    def before_save_instance(self, instance, row, **kwargs):
-        if hasattr(self, 'tienda_actual'):
-            instance.tienda = self.tienda_actual
-        super().before_save_instance(instance, row, **kwargs)
+    def before_save_instance(self, instance, row, *args, **kwargs):
+        tienda = getattr(self, 'tienda_actual', None)
+        if tienda:
+            instance.tienda = tienda
+        super().before_save_instance(instance, row, *args, **kwargs)
 
 class VentaResource(resources.ModelResource):
     producto = fields.Field(attribute='producto', widget=ForeignKeyWidget(Producto, 'nombre'))
@@ -100,13 +89,12 @@ class VentaResource(resources.ModelResource):
     class Meta:
         model = Venta
         fields = ('id', 'cliente', 'producto', 'cantidad', 'precio_unitario', 'costo_unitario', 'total', 'fecha_de_venta', 'observaciones')
-        export_order = fields
 
-    # CORRECCIÓN: Agregamos 'row'
-    def before_save_instance(self, instance, row, **kwargs):
-        if hasattr(self, 'tienda_actual'):
-            instance.tienda = self.tienda_actual
-        super().before_save_instance(instance, row, **kwargs)
+    def before_save_instance(self, instance, row, *args, **kwargs):
+        tienda = getattr(self, 'tienda_actual', None)
+        if tienda:
+            instance.tienda = tienda
+        super().before_save_instance(instance, row, *args, **kwargs)
 
 class ComprobanteResource(resources.ModelResource):
     cliente = fields.Field(attribute='cliente', widget=ForeignKeyWidget(Cliente, 'nombre_completo'))
@@ -164,5 +152,6 @@ class StockActualResource(resources.ModelResource):
     # Este método calcula el valor para nuestra nueva columna
     def dehydrate_valor_total_stock(self, producto):
         return producto.stock * producto.costo
+
 
 
