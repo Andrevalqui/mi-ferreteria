@@ -21,8 +21,13 @@ class ProductoResource(resources.ModelResource):
         import_id_fields = ('id',)
 
     def before_save_instance(self, instance, **kwargs):
-        instance.tienda = self.tienda_actual
-        super().before_save_instance(instance, **kwargs) # Añadido para completar el método
+        # Usamos getattr por seguridad. Si 'tienda_actual' no existe, devuelve None
+        tienda = getattr(self, 'tienda_actual', None)
+        if tienda:
+            instance.tienda = tienda
+        
+        # IMPORTANTE: No olvides pasar los **kwargs al super
+        super().before_save_instance(instance, **kwargs)
 
 
 class ClienteResource(resources.ModelResource):
@@ -175,3 +180,4 @@ class StockActualResource(resources.ModelResource):
     # Este método calcula el valor para nuestra nueva columna
     def dehydrate_valor_total_stock(self, producto):
         return producto.stock * producto.costo
+
