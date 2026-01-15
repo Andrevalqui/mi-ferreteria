@@ -2,6 +2,7 @@
 
 from django import forms
 from .models import Producto, Cliente, Proveedor, Compra
+from django.contrib.auth.models import User
 
 # --- FORMULARIO PARA EL REGISTRO DE NUEVAS TIENDAS ---
 class RegistroTiendaForm(forms.Form):
@@ -61,4 +62,25 @@ class EmpleadoForm(forms.Form):
     last_name = forms.CharField(max_length=150, label="Apellidos")
     password = forms.CharField(widget=forms.PasswordInput, label="Contraseña")
     rol = forms.ChoiceField(choices=[('VENDEDOR', 'Vendedor'), ('ADMIN', 'Administrador Local')])
+
+class EmpleadoForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput, label="Contraseña")
+    
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email', 'password']
+        labels = {
+            'username': 'Nombre de Usuario (para el login)',
+            'first_name': 'Nombres',
+            'last_name': 'Apellidos',
+            'email': 'Correo electrónico',
+        }
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"]) # Encripta la contraseña
+        if commit:
+            user.save()
+        return user
+
 
