@@ -1018,3 +1018,36 @@ def log_logueos_view(request):
     }
     return render(request, 'inventario/log_logueos.html', context)
 
+@login_required
+def lista_usuarios_tienda(request):
+    tienda = request.user.tienda # O el perfil vinculado
+    empleados = Perfil.objects.filter(tienda=tienda).exclude(user=request.user)
+    return render(request, 'inventario/usuarios_lista.html', {'empleados': empleados})
+
+@login_required
+def crear_usuario_tienda(request):
+    if request.method == 'POST':
+        form = EmpleadoForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            # Crear el usuario de Django
+            nuevo_user = User.objects.create_user(
+                username=data['username'],
+                password=data['password'],
+                first_name=data['first_name'],
+                last_name=data['last_name'],
+                is_staff=False # IMPORTANTE: No le damos acceso al admin
+            )
+            # Vincularlo a la tienda de Bruno
+            Perfil.objects.create(
+                user=nuevo_user,
+                tienda=request.user.tienda,
+                rol=data['rol']
+            )
+            messages.success(request, f"Empleado {nuevo_user.username} creado con éxito.")
+            return redirect('inventario:lista_usuarios_tienda')
+    else:
+        form = EmpleadoForm()
+    return render(request, 'inventario/usuarios_form.html', {'form': form})
+
+
