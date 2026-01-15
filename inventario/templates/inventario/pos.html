@@ -88,7 +88,14 @@
                 <h5 class="card-title fw-bold mb-3"><i class="fas fa-user"></i> Datos del Cliente</h5>
                 
                 <div class="mb-3">
-                    <select id="cliente" class="form-select"></select>
+                    <label class="form-label text-muted small fw-bold">CLIENTE</label>
+                    <div class="input-group">
+                        <select id="cliente" class="form-select"></select>
+                        <!-- BOTÓN PLUS AGREGADO -->
+                        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalNuevoCliente">
+                            <i class="fas fa-user-plus"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="mb-3">
@@ -104,6 +111,40 @@
                         <i class="fas fa-file-invoice-dollar me-2"></i> EMITIR FACTURA
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE REGISTRO RÁPIDO DE CLIENTE (NUEVO) -->
+<div class="modal fade" id="modalNuevoCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="fas fa-user-edit"></i> Registro Rápido de Cliente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nuevo-cliente">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre Completo o Razón Social</label>
+                        <input type="text" id="reg_nombre" class="form-control" required placeholder="Ej: Juan Perez o Constructora SAC">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">DNI o RUC</label>
+                            <input type="text" id="reg_doc" class="form-control" maxlength="11" placeholder="8 u 11 dígitos">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Teléfono</label>
+                            <input type="text" id="reg_tel" class="form-control" placeholder="Opcional">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-guardar-cliente-rapido">Guardar y Seleccionar</button>
             </div>
         </div>
     </div>
@@ -151,6 +192,41 @@
                     }
                 }
             }
+        });
+
+        // LÓGICA PARA GUARDAR CLIENTE RÁPIDO (NUEVO)
+        $('#btn-guardar-cliente-rapido').click(function() {
+            const data = {
+                nombre: $('#reg_nombre').val(),
+                doc: $('#reg_doc').val(),
+                tel: $('#reg_tel').val()
+            };
+
+            if (!data.nombre) return alert("Por favor ingresa el nombre.");
+
+            $.ajax({
+                url: "{% url 'inventario:crear_cliente_ajax' %}",
+                method: "POST",
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                success: function(response) {
+                    // 1. Añadir el nuevo cliente al selector Select2 y seleccionarlo
+                    const newOption = new Option(response.nombre + " (" + (response.doc || 'Sin Doc') + ")", response.id, true, true);
+                    $('#cliente').append(newOption).trigger('change');
+                    
+                    // 2. Limpiar formulario y cerrar modal
+                    $('#form-nuevo-cliente')[0].reset();
+                    const modalElement = document.getElementById('modalNuevoCliente');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+
+                    alert("¡Cliente registrado y seleccionado!");
+                },
+                error: function(xhr) {
+                    alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : "No se pudo registrar"));
+                }
+            });
         });
     });
 
@@ -225,70 +301,58 @@
     }
 
     window.emitir = function(tipo) {
-    if(shoppingCart.length === 0) return alert("El carrito está vacío.");
+        if(shoppingCart.length === 0) return alert("El carrito está vacío.");
 
-    // Obtenemos el ID del cliente seleccionado
-    const clienteId = $('#cliente').val();
+        const clienteId = $('#cliente').val();
 
-    // === VALIDACIÓN DE SEGURIDAD PARA FACTURAS ===
-    if (tipo === 'FACTURA') {
-        // Si el clienteId está vacío significa que es "Cliente General (Público)"
-        if (!clienteId || clienteId === "") {
-            alert("⚠️ RESTRICCIÓN DE FACTURACIÓN:\n\nNo se puede emitir una FACTURA a 'Público General'.\nEs necesario seleccionar una empresa con RUC válido.");
-            return; // Detenemos la ejecución aquí
-        }
-    }
-    // =============================================
-
-    const payload = {
-        cliente_id: clienteId,
-        observaciones: $('#observaciones').val(),
-        tipo_comprobante: tipo,
-        cart: shoppingCart
-    };
-
-    $.ajax({
-        url: "{% url 'inventario:emitir_comprobante_ajax' %}",
-        method: "POST",
-        contentType: 'application/json',
-        data: JSON.stringify(payload),
-        headers: { 'X-CSRFToken': '{{ csrf_token }}' }, 
-        success: function(response) {
-            if (response.comprobante_id) {
-                // 1. Actualizar STOCKS en la variable local
-                if (response.stocks_actualizados) {
-                    response.stocks_actualizados.forEach(update => {
-                        const productIdx = productosData.findIndex(p => p.id == update.id);
-                        if(productIdx > -1) {
-                            productosData[productIdx].stock = update.stock;
-                            const baseName = productosData[productIdx].text.split(' (Stock:')[0];
-                            productosData[productIdx].text = `${baseName} (Stock: ${update.stock})`;
-                        }
-                    });
-                }
-
-                // 2. Refrescar el buscador Select2
-                $('#producto').empty().select2({ data: productosData, placeholder: "Buscar material o herramienta..." });
-
-                // 3. Abrir Ticket
-                window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
-                
-                // 4. Resetear Formulario
-                $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
-                shoppingCart = [];
-                renderizarCarrito();
-                $('#cliente').val(null).trigger('change');
-                $('#observaciones').val('');
+        if (tipo === 'FACTURA') {
+            if (!clienteId || clienteId === "") {
+                alert("⚠️ RESTRICCIÓN DE FACTURACIÓN:\n\nNo se puede emitir una FACTURA a 'Público General'.\nEs necesario seleccionar una empresa con RUC válido.");
+                return;
             }
-        },
-        error: function(xhr) {
-            alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : "Desconocido"));
         }
-    });
-}
+
+        const payload = {
+            cliente_id: clienteId,
+            observaciones: $('#observaciones').val(),
+            tipo_comprobante: tipo,
+            cart: shoppingCart
+        };
+
+        $.ajax({
+            url: "{% url 'inventario:emitir_comprobante_ajax' %}",
+            method: "POST",
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }, 
+            success: function(response) {
+                if (response.comprobante_id) {
+                    if (response.stocks_actualizados) {
+                        response.stocks_actualizados.forEach(update => {
+                            const productIdx = productosData.findIndex(p => p.id == update.id);
+                            if(productIdx > -1) {
+                                productosData[productIdx].stock = update.stock;
+                                const baseName = productosData[productIdx].text.split(' (Stock:')[0];
+                                productosData[productIdx].text = `${baseName} (Stock: ${update.stock})`;
+                            }
+                        });
+                    }
+
+                    $('#producto').empty().select2({ data: productosData, placeholder: "Buscar material o herramienta..." });
+
+                    window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
+                    
+                    $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
+                    shoppingCart = [];
+                    renderizarCarrito();
+                    $('#cliente').val(null).trigger('change');
+                    $('#observaciones').val('');
+                }
+            },
+            error: function(xhr) {
+                alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : "Desconocido"));
+            }
+        });
+    }
 </script>
-
 {% endblock %}
-
-
-
