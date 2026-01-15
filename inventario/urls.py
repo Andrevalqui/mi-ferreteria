@@ -10,7 +10,7 @@ urlpatterns = [
     path('', views.portal_view, name='portal'), # El nombre es 'portal'
     path('registro/', views.registro_view, name='registro'),
     path('login/', auth_views.LoginView.as_view(template_name='inventario/login.html'), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='inventario:portal'), name='logout'),
+    path('logout/', views.logout_view, name='logout'),
 
     # --- RUTAS PARA CLIENTES LOGUEADOS ---
     path('dashboard/', views.dashboard_view, name='dashboard'),
@@ -58,6 +58,7 @@ urlpatterns = [
     path('gestion/<str:modelo>/eliminar/<int:pk>/', views.gestion_eliminar_view, name='gestion_eliminar'),
     path('pos/crear-cliente-ajax/', views.crear_cliente_ajax_view, name='crear_cliente_ajax'),
 ]
+
 
 
 
