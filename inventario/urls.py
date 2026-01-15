@@ -53,5 +53,8 @@ urlpatterns = [
 
     path('mis-usuarios/', views.lista_usuarios_tienda, name='lista_usuarios_tienda'),
     path('mis-usuarios/nuevo/', views.crear_usuario_tienda, name='crear_usuario_tienda'),
+    path('mis-usuarios/editar/<int:usuario_id>/', views.editar_usuario_tienda, name='editar_usuario_tienda'),
+    path('mis-usuarios/eliminar/<int:usuario_id>/', views.eliminar_usuario_tienda, name='eliminar_usuario_tienda'),
 ]
+
 
