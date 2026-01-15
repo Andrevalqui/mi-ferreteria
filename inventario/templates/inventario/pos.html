@@ -225,58 +225,70 @@
     }
 
     window.emitir = function(tipo) {
-        if(shoppingCart.length === 0) return alert("El carrito está vacío.");
+    if(shoppingCart.length === 0) return alert("El carrito está vacío.");
 
-        const payload = {
-            cliente_id: $('#cliente').val(),
-            observaciones: $('#observaciones').val(),
-            tipo_comprobante: tipo,
-            cart: shoppingCart
-        };
+    // Obtenemos el ID del cliente seleccionado
+    const clienteId = $('#cliente').val();
 
-        $.ajax({
-            url: "{% url 'inventario:emitir_comprobante_ajax' %}",
-            method: "POST",
-            contentType: 'application/json',
-            data: JSON.stringify(payload),
-            headers: { 'X-CSRFToken': '{{ csrf_token }}' }, // Usamos la variable de template directa
-            success: function(response) {
-                if (response.comprobante_id) {
-                    // 1. Actualizar STOCKS en la variable local para que el buscador refleje el cambio
-                    if (response.stocks_actualizados) {
-                        response.stocks_actualizados.forEach(update => {
-                            const productIdx = productosData.findIndex(p => p.id == update.id);
-                            if(productIdx > -1) {
-                                // Actualizamos el stock numérico
-                                productosData[productIdx].stock = update.stock;
-                                // Actualizamos el texto que Select2 muestra (ej: "Martillo (Stock: 10)")
-                                const baseName = productosData[productIdx].text.split(' (Stock:')[0];
-                                productosData[productIdx].text = `${baseName} (Stock: ${update.stock})`;
-                            }
-                        });
-                    }
-
-                    // 2. Refrescar el buscador Select2 con los datos nuevos
-                    $('#producto').empty().select2({ data: productosData, placeholder: "Buscar material o herramienta..." });
-
-                    // 3. Abrir Ticket (Tu lógica original)
-                    window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
-                    
-                    // 4. Resetear Formulario (Tu lógica original)
-                    $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
-                    shoppingCart = [];
-                    renderizarCarrito();
-                    $('#cliente').val(null).trigger('change');
-                    $('#observaciones').val('');
-                }
-            },
-            error: function(xhr) {
-                alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : "Desconocido"));
-            }
-        });
+    // === VALIDACIÓN DE SEGURIDAD PARA FACTURAS ===
+    if (tipo === 'FACTURA') {
+        // Si el clienteId está vacío significa que es "Cliente General (Público)"
+        if (!clienteId || clienteId === "") {
+            alert("⚠️ RESTRICCIÓN DE FACTURACIÓN:\n\nNo se puede emitir una FACTURA a 'Público General'.\nEs necesario seleccionar una empresa con RUC válido.");
+            return; // Detenemos la ejecución aquí
+        }
     }
+    // =============================================
+
+    const payload = {
+        cliente_id: clienteId,
+        observaciones: $('#observaciones').val(),
+        tipo_comprobante: tipo,
+        cart: shoppingCart
+    };
+
+    $.ajax({
+        url: "{% url 'inventario:emitir_comprobante_ajax' %}",
+        method: "POST",
+        contentType: 'application/json',
+        data: JSON.stringify(payload),
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }, 
+        success: function(response) {
+            if (response.comprobante_id) {
+                // 1. Actualizar STOCKS en la variable local
+                if (response.stocks_actualizados) {
+                    response.stocks_actualizados.forEach(update => {
+                        const productIdx = productosData.findIndex(p => p.id == update.id);
+                        if(productIdx > -1) {
+                            productosData[productIdx].stock = update.stock;
+                            const baseName = productosData[productIdx].text.split(' (Stock:')[0];
+                            productosData[productIdx].text = `${baseName} (Stock: ${update.stock})`;
+                        }
+                    });
+                }
+
+                // 2. Refrescar el buscador Select2
+                $('#producto').empty().select2({ data: productosData, placeholder: "Buscar material o herramienta..." });
+
+                // 3. Abrir Ticket
+                window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
+                
+                // 4. Resetear Formulario
+                $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
+                shoppingCart = [];
+                renderizarCarrito();
+                $('#cliente').val(null).trigger('change');
+                $('#observaciones').val('');
+            }
+        },
+        error: function(xhr) {
+            alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : "Desconocido"));
+        }
+    });
+}
 </script>
 
 {% endblock %}
+
 
 
