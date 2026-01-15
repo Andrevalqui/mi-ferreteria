@@ -50,4 +50,8 @@ urlpatterns = [
     path('pos/emitir_comprobante_ajax/', views.emitir_comprobante_ajax_view, name='emitir_comprobante_ajax'),
     path('comprobante/<int:comprobante_id>/ticket/', views.vista_para_impresion_basica, name='vista_ticket_comprobante'),
     path('comprobante/<int:comprobante_id>/descargar-pdf/', views.descargar_comprobante_pdf_view, name='descargar_comprobante_pdf'),
+
+    path('mis-usuarios/', views.lista_usuarios_tienda, name='lista_usuarios_tienda'),
+    path('mis-usuarios/nuevo/', views.crear_usuario_tienda, name='crear_usuario_tienda'),
 ]
+
