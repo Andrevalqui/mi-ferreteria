@@ -1,35 +1,37 @@
 import os
 from django.core.wsgi import get_wsgi_application
 from django.db import connection
-from django.core.management import execute_from_command_line # IMPORTANTE: Agregamos esta línea
+from django.core.management import execute_from_command_line
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mi_erp.settings')
 
 application = get_wsgi_application()
 
-# --- MANTENIMIENTO INTEGRAL (DB + DISEÑO) ---
 def mantenimiento_servidor():
-    # 1. REPARAR BASE DE DATOS (Campo unidad_medida)
+    # 1. REPARAR BASE DE DATOS (Columnas y Tablas)
     try:
         with connection.cursor() as cursor:
+            # Reparar columna unidad_medida
+            cursor.execute("ALTER TABLE inventario_producto ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(20) DEFAULT 'UND';")
+            
+            # Crear tabla Perfil si no existe (Basado en tu modelo)
             cursor.execute("""
-                ALTER TABLE inventario_producto 
-                ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(20) DEFAULT 'UND';
+                CREATE TABLE IF NOT EXISTS inventario_perfil (
+                    id SERIAL PRIMARY KEY,
+                    rol VARCHAR(20) NOT NULL,
+                    tienda_id INTEGER REFERENCES inventario_tienda(id),
+                    user_id INTEGER UNIQUE REFERENCES auth_user(id)
+                );
             """)
-        print("Base de datos verificada.")
+        print("Mantenimiento de tablas completado.")
     except Exception as e:
-        print(f"Log DB: {e}")
+        print(f"Error DB: {e}")
 
-    # 2. REPARAR DISEÑO (CSS del Admin)
+    # 2. REPARAR DISEÑO (CSS)
     try:
-        # Esto extrae los CSS de Django y los pone donde WhiteNoise pueda verlos
         execute_from_command_line(['manage.py', 'collectstatic', '--noinput'])
-        print("Archivos estáticos recolectados.")
     except Exception as e:
-        print(f"Log Static: {e}")
+        print(f"Error Static: {e}")
 
-# Ejecutamos las dos reparaciones
 mantenimiento_servidor()
-# --------------------------------------------
-
 app = application
