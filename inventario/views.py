@@ -690,9 +690,13 @@ def importar_datos_view(request, data_type):
                     'data_type': data_type
                 })
             else:
-                # Si no hay errores, importación real
+                # IMPORTACIÓN REAL
+                # 1. Volvemos a asignar la tienda por si acaso
+                data_resource.tienda_actual = tienda_actual 
+                # 2. Ejecutamos sin dry_run
                 data_resource.import_data(dataset, dry_run=False, raise_errors=False)
-                messages.success(request, f'¡Importación de {plural_name} completada con éxito!')
+                
+                messages.success(request, f'¡Importación de {plural_name} completada!')
                 return redirect('inventario:gestion_lista', modelo=data_type)
 
         except Exception as e:
@@ -1087,6 +1091,7 @@ def eliminar_usuario_tienda(request, usuario_id):
         messages.success(request, f"El empleado ha sido eliminado de la tienda.")
     
     return redirect('inventario:lista_usuarios_tienda')
+
 
 
 
