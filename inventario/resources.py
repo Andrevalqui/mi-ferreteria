@@ -1,6 +1,6 @@
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget
-from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante
+from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante, CajaDiaria, MovimientoCaja
 from decimal import Decimal
 
 class CleanForeignKeyWidget(ForeignKeyWidget):
@@ -152,6 +152,25 @@ class StockActualResource(resources.ModelResource):
     # Este método calcula el valor para nuestra nueva columna
     def dehydrate_valor_total_stock(self, producto):
         return producto.stock * producto.costo
+
+class CajaDiariaResource(resources.ModelResource):
+    usuario_apertura = fields.Field(attribute='usuario_apertura__username', column_name='Usuario Apertura')
+    usuario_cierre = fields.Field(attribute='usuario_cierre__username', column_name='Usuario Cierre')
+    
+    class Meta:
+        model = CajaDiaria
+        fields = ('id', 'fecha_apertura', 'fecha_cierre', 'monto_inicial', 'monto_final_sistema', 'monto_final_real', 'diferencia', 'estado', 'observaciones', 'usuario_apertura', 'usuario_cierre')
+        export_order = fields
+
+class MovimientoCajaResource(resources.ModelResource):
+    caja_id = fields.Field(attribute='caja__id', column_name='ID Caja')
+    usuario = fields.Field(attribute='usuario__username', column_name='Usuario')
+
+    class Meta:
+        model = MovimientoCaja
+        fields = ('id', 'caja_id', 'tipo', 'monto', 'concepto', 'fecha', 'usuario')
+        export_order = fields
+
 
 
 
