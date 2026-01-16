@@ -9,6 +9,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from io import BytesIO
 from xhtml2pdf import pisa
 from import_export.admin import ImportExportModelAdmin
+from .models import CajaDiaria, MovimientoCaja
 
 # --- IMPORTACIONES LOCALES ORGANIZADAS ---
 from .models import (
@@ -120,3 +121,14 @@ except admin.sites.NotRegistered:
     pass
 
 admin.site.register(User, CustomUserAdmin)
+
+@admin.register(CajaDiaria)
+class CajaDiariaAdmin(admin.ModelAdmin):
+    list_display = ('id', 'tienda', 'fecha_apertura', 'monto_inicial', 'estado', 'usuario_apertura')
+    list_filter = ('estado', 'fecha_apertura', 'tienda')
+
+@admin.register(MovimientoCaja)
+class MovimientoCajaAdmin(admin.ModelAdmin):
+    list_display = ('tipo', 'monto', 'concepto', 'caja', 'fecha')
+    list_filter = ('tipo', 'caja__tienda')
+
