@@ -86,3 +86,23 @@ class EmpleadoModelForm(forms.ModelForm): # Le cambio el nombre para evitar coli
         if commit:
             user.save()
         return user
+
+class AperturaCajaForm(forms.ModelForm):
+    class Meta:
+        model = CajaDiaria
+        fields = ['monto_inicial']
+        labels = {'monto_inicial': 'Dinero Inicial en Caja (Sencillo)'}
+
+class CierreCajaForm(forms.ModelForm):
+    class Meta:
+        model = CajaDiaria
+        fields = ['monto_final_real', 'observaciones']
+        labels = {
+            'monto_final_real': '¿Cuánto dinero contaste en el cajón?',
+            'observaciones': 'Comentarios del cierre'
+        }
+
+class MovimientoCajaForm(forms.ModelForm):
+    class Meta:
+        model = MovimientoCaja
+        fields = ['tipo', 'monto', 'concepto']
