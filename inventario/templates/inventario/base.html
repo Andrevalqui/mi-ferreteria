@@ -166,6 +166,20 @@
                 <a href="#" id="btn-to-web" class="nav-button" style="color: #0dcaf0;">
                     <i class="fas fa-globe"></i> IR A LA PÁGINA WEB
                 </a>
+
+                <hr class="border-secondary my-3">
+                <div class="small text-muted text-uppercase mb-1 ms-2">Control de Dinero</div>
+
+                <a href="{% url 'inventario:apertura_caja' %}" class="nav-button text-success">
+                    <i class="fas fa-door-open"></i> Abrir Caja
+                </a>
+                <a href="{% url 'inventario:movimiento_caja' %}" class="nav-button text-warning">
+                    <i class="fas fa-hand-holding-usd"></i> Gastos / Ingresos
+                </a>
+                <a href="{% url 'inventario:cierre_caja' %}" class="nav-button text-danger">
+                    <i class="fas fa-door-closed"></i> Cerrar Caja
+                </a>
+                
             </div>
 
             {% if user.is_authenticated %}
@@ -217,3 +231,4 @@
     {% block extra_js %}{% endblock %} 
 </body>
 </html>
+
