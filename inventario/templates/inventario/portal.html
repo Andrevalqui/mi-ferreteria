@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ferretería Master - Calidad para Construir</title>
+    <title>Ferretería Tapia Melendez</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&family=Anton&display=swap" rel="stylesheet">
@@ -12,19 +12,34 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8f9fa; }
         
-        /* Hero Section */
+        /* Hero Section Video Background */
         .hero {
-            /* CAMBIO: Se usa la imagen portada.jpeg local */
-            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url("{% static 'inventario/images/portada.jpeg' %}");
-            background-size: cover;
-            background-position: center;
+            position: relative;
             height: 90vh;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
             color: white;
+            overflow: hidden;
+            background-color: black;
+        }
+
+        .hero video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Asegura que el video cubra todo */
+            transform: translate(-50%, -50%);
+            z-index: 1;
+            opacity: 0.6; /* Un poco oscuro para que se lea el texto */
+        }
+        
+        .hero-content {
             position: relative;
+            z-index: 2;
         }
         
         .brand-title {
@@ -32,15 +47,15 @@
             font-size: 5rem;
             text-transform: uppercase;
             color: #ffc107;
-            text-shadow: 3px 3px 15px rgba(0,0,0,0.9);
+            text-shadow: 4px 4px 15px rgba(0,0,0,0.9);
             letter-spacing: 2px;
         }
         
         .hero p { 
             font-size: 1.6rem; 
-            max-width: 700px; 
+            max-width: 800px; 
             margin: 0 auto; 
-            text-shadow: 2px 2px 5px rgba(0,0,0,1);
+            text-shadow: 2px 2px 8px rgba(0,0,0,1);
             font-weight: 500;
         }
 
@@ -100,6 +115,10 @@
             box-shadow: 0 5px 20px rgba(0,0,0,0.05);
             height: 100%;
             border-left: 5px solid #ffc107;
+            transition: transform 0.3s ease; /* Efecto dinámico */
+        }
+        .about-box:hover {
+            transform: translateY(-10px); /* Movimiento al pasar mouse */
         }
 
         .contact-item { margin-bottom: 25px; display: flex; align-items: center; font-size: 1.1rem; }
@@ -111,7 +130,7 @@
             margin-right: 20px; font-size: 1.2rem;
         }
 
-        /* Splash Screen */
+        /* Splash Screen & Animation */
         #splash-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #1d2b38;
@@ -119,15 +138,37 @@
             flex-direction: column; align-items: center; justify-content: center;
             z-index: 99999; color: white; text-align: center;
         }
-        .splash-text { font-family: 'Anton', sans-serif; font-size: 3rem; margin-bottom: 20px; }
+        .splash-text { 
+            font-family: 'Anton', sans-serif; 
+            font-size: 3rem; 
+            margin-bottom: 20px;
+            font-weight: bold; /* Negrita */
+        }
+        
+        /* Animación de palpitación para el logo */
+        @keyframes pulse-logo {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .splash-logo {
+            width: 150px;
+            height: 150px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            animation: pulse-logo 1.5s infinite; /* Palpitación infinita */
+            box-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
+        }
     </style>
 </head>
 <body>
 
     <!-- OVERLAY DEL SPLASH SCREEN -->
     <div id="splash-overlay">
-        <div class="splash-text" id="splash-message">PROCESANDO...</div>
-        <div class="spinner-border text-warning" style="width: 4rem; height: 4rem;" role="status"></div>
+        <!-- Logo con animación de palpitación -->
+        <img src="{% static 'inventario/images/logo.jpeg' %}" class="splash-logo" alt="Logo Cargando">
+        <div class="splash-text" id="splash-message">FERRETERÍA TAPIA MELENDEZ</div>
+        <div class="spinner-border text-warning" style="width: 3rem; height: 3rem;" role="status"></div>
     </div>
 
     <!-- Botón de Acceso para Personal -->
@@ -135,15 +176,19 @@
         <i class="fas fa-user-lock me-2"></i> Acceso Intranet
     </a>
 
-    <!-- Portada Principal -->
+    <!-- Portada Principal con VIDEO -->
     <header class="hero">
-        <div class="container">
-            <h1 class="brand-title">Ferretería Master</h1>
+        <!-- VIDEO DE FONDO -->
+        <video autoplay muted loop playsinline poster="{% static 'inventario/images/portada.jpeg' %}">
+            <!-- Asegúrate de tener un video en static/inventario/videos/portada.mp4 -->
+            <!-- Si no hay video, se verá la imagen 'poster' -->
+            <source src="{% static 'inventario/videos/portada.mp4' %}" type="video/mp4">
+        </video>
+        
+        <div class="container hero-content">
+            <h1 class="brand-title">FERRETERÍA TAPIA MELENDEZ</h1>
             <p class="mb-5">Tu socio confiable en construcción. Herramientas profesionales y acabados de primera calidad.</p>
             
-            <a href="{% url 'inventario:catalogo' %}" class="btn btn-outline-light btn-lg px-5 py-3 fw-bold rounded-pill shadow me-3">
-                <i class="fas fa-search me-2"></i> Ver Catálogo
-            </a>
             <a href="https://wa.me/51997317288" target="_blank" class="btn btn-success btn-lg px-5 py-3 fw-bold rounded-pill shadow">
                 <i class="fab fa-whatsapp me-2"></i> Cotizar Ahora
             </a>
@@ -154,31 +199,40 @@
     <section class="container my-5 py-5">
         <h2 class="section-title">Nuestras Soluciones</h2>
         <div class="row text-center g-4">
-            <div class="col-md-4">
+            <!-- TARJETA MATERIALES (NUEVA) -->
+            <div class="col-md-3">
+                <a href="{% url 'inventario:catalogo' %}?categoria=materiales" class="feature-card">
+                    <i class="fas fa-cubes feature-icon"></i>
+                    <h3>Materiales</h3>
+                    <p class="text-muted">Cemento, fierros, clavos y agregados para tu construcción.</p>
+                </a>
+            </div>
+            <!-- TARJETAS EXISTENTES -->
+            <div class="col-md-3">
                 <a href="{% url 'inventario:catalogo' %}?categoria=herramienta" class="feature-card">
                     <i class="fas fa-hammer feature-icon"></i>
                     <h3>Herramientas</h3>
-                    <p class="text-muted">Taladros, martillos, llaves y equipos de potencia de las mejores marcas.</p>
+                    <p class="text-muted">Taladros, martillos, llaves y equipos de potencia.</p>
                 </a>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <a href="{% url 'inventario:catalogo' %}?categoria=pintura" class="feature-card">
                     <i class="fas fa-paint-roller feature-icon"></i>
-                    <h3>Pinturas y Acabados</h3>
-                    <p class="text-muted">Matizado computarizado, brochas y protección para todo tipo de superficies.</p>
+                    <h3>Pinturas</h3>
+                    <p class="text-muted">Matizado, brochas y protección de superficies.</p>
                 </a>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <a href="{% url 'inventario:catalogo' %}?categoria=seguridad" class="feature-card">
                     <i class="fas fa-hard-hat feature-icon"></i>
-                    <h3>Seguridad Industrial</h3>
-                    <p class="text-muted">EPPs, cascos, guantes y señalización normativa para obras.</p>
+                    <h3>Seguridad</h3>
+                    <p class="text-muted">EPPs, cascos, guantes y señalización.</p>
                 </a>
             </div>
         </div>
     </section>
 
-    <!-- Misión y Visión -->
+    <!-- Misión y Visión DINÁMICAS -->
     <section class="bg-light py-5">
         <div class="container">
             <div class="row g-5">
@@ -208,41 +262,41 @@
                         <i class="fas fa-map-marker-alt"></i>
                         <div>
                             <strong>Dirección Principal:</strong><br>
-                            Av. Nicolás Ayllón 1234, Lima - Perú
+                            Adolfo King Nº 60, Pacasmayo
                         </div>
                     </div>
                     <div class="contact-item">
                         <i class="fas fa-phone-alt"></i>
                         <div>
                             <strong>Teléfono / Ventas:</strong><br>
-                            +51 997 317 288
+                            969 117 667 - 975 217 053
                         </div>
                     </div>
                     <div class="contact-item">
                         <i class="fas fa-envelope"></i>
                         <div>
                             <strong>Correo Electrónico:</strong><br>
-                            ventas@ferreteriamaster.com
+                            ventas@ferreteriatapiamelendez.com
                         </div>
                     </div>
                     <div class="contact-item">
                         <i class="far fa-clock"></i>
                         <div>
                             <strong>Horario de Atención:</strong><br>
-                            Lun - Sáb: 7:00 AM - 6:00 PM
+                            Lun - Sáb: 7:40 AM - 8:30 PM
                         </div>
                     </div>
                     <div class="mt-4">
-                        <a href="https://wa.me/51997317288" target="_blank" class="btn btn-success w-100 fw-bold py-3">
+                        <a href="https://wa.me/51969117667" target="_blank" class="btn btn-success w-100 fw-bold py-3">
                             <i class="fab fa-whatsapp me-2"></i> Chatear con Ventas
                         </a>
                     </div>
                 </div>
             </div>
             <div class="col-lg-7">
-                <!-- Mapa Embebido de Google (Ejemplo Lima) -->
+                <!-- Mapa de Pacasmayo (Referencia aproximada) -->
                 <div class="rounded shadow overflow-hidden" style="height: 450px;">
-                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3901.837894371916!2d-76.9536856!3d-12.054668!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9105c683b5555555%3A0x123456789!2sLima!5e0!3m2!1ses!2spe!4v1620000000000!5m2!1ses!2spe" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15829.497589255052!2d-79.5705!3d-7.4005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x904d4f6a5b5b5b5b%3A0x123456789!2sPacasmayo!5e0!3m2!1ses!2spe!4v1620000000000!5m2!1ses!2spe" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
                 </div>
             </div>
         </div>
@@ -251,8 +305,7 @@
     <footer class="bg-dark text-white text-center py-4">
         <div class="container">
             <!-- AÑO DINÁMICO -->
-            <p class="mb-1 fw-bold fs-5">&copy; {% now "Y" %} Ferretería Master. Todos los derechos reservados.</p>
-            <!-- TEXTO COLOR CORREGIDO -->
+            <p class="mb-1 fw-bold fs-5">&copy; {% now "Y" %} Ferretería Tapia Melendez. Todos los derechos reservados.</p>
             <small class="text-white-50">Sistema desarrollado para gestión de ferreterías.</small>
         </div>
     </footer>
@@ -261,22 +314,25 @@
         const splash = document.getElementById('splash-overlay');
         const splashMsg = document.getElementById('splash-message');
 
-        // 1. Splash al dar clic en Acceso Personal
         document.getElementById('btn-acceso').addEventListener('click', function(e) {
             e.preventDefault();
             const targetUrl = this.href;
-            splashMsg.innerText = "ACCEDIENDO AL SISTEMA...";
+            splashMsg.innerText = "FERRETERÍA TAPIA MELENDEZ";
             splash.style.display = 'flex';
-            setTimeout(() => { window.location.href = targetUrl; }, 1200);
+            setTimeout(() => { window.location.href = targetUrl; }, 1500);
         });
 
-        // 2. Splash de Despedida (Logout)
         window.addEventListener('load', function() {
+            // LIMPIEZA DE URL PARA SEGURIDAD (Evitar re-logout al dar F5)
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('logout')) {
                 const nombre = urlParams.get('nombre') || 'USUARIO';
                 splashMsg.innerHTML = `¡HASTA PRONTO!<br><span style="color:#ffc107">${nombre.toUpperCase()}</span>`;
                 splash.style.display = 'flex';
+                
+                // Limpiar URL inmediatamente
+                window.history.replaceState({}, document.title, window.location.pathname);
+
                 setTimeout(() => { 
                     splash.style.transition = "opacity 0.8s";
                     splash.style.opacity = "0";
