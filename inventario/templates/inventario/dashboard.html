@@ -4,31 +4,7 @@
 
 {% block extra_styles %}
 <style>
-    /* === SPLASH DE BIENVENIDA === */
-    #welcome-splash {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: #1d2b38;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-        color: white;
-        text-align: center;
-    }
-    .welcome-text {
-        font-family: 'Anton', sans-serif;
-        font-size: 3.5rem;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-    }
-
-    /* === INICIO: NUEVO DISEÑO DE TÍTULO Y EFECTOS === */
-    /* ... (Todo tu CSS original de KPI y títulos se mantiene igual aquí) ... */
+    /* === INICIO: DISEÑO DE TÍTULO Y EFECTOS === */
     @keyframes animated-gradient {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
@@ -93,15 +69,7 @@
 
 
 {% block content %}
-<!-- SPLASH DE BIENVENIDA DINÁMICO -->
-<div id="welcome-splash">
-    <div class="welcome-text">
-        BIENVENIDO <br>
-        <span style="color: #ffc107;">{{ user.get_full_name|upper }}</span> <br>
-        AL PORTAL
-    </div>
-    <div class="spinner-border text-warning mt-4" style="width: 3rem; height: 3rem;"></div>
-</div>
+<!-- EL SPLASH SCREEN HA SIDO ELIMINADO PARA CARGA INMEDIATA -->
 
 <div class="container-fluid mt-4">
     <h1 class="dashboard-title">Panel de Control</h1>
@@ -185,16 +153,4 @@
         </div>
     </div>
 </div>
-
-<script>
-    // Lógica para ocultar el splash de bienvenida
-    window.addEventListener('load', function() {
-        const splash = document.getElementById('welcome-splash');
-        setTimeout(() => {
-            splash.style.transition = "opacity 0.8s";
-            splash.style.opacity = "0";
-            setTimeout(() => { splash.style.display = 'none'; }, 800);
-        }, 2000);
-    });
-</script>
 {% endblock %}
