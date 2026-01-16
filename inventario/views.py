@@ -248,8 +248,9 @@ def registrar_compra_view(request):
 
 
 def portal_view(request):
-    if request.user.is_authenticated:
+    if request.user.is_authenticated and not request.GET.get('force'):
         return redirect('inventario:dashboard')
+    
     return render(request, 'inventario/portal.html')
 
 # === NUEVA LÓGICA DE CATÁLOGO (ACTUALIZADA POR REQUERIMIENTO) ===
@@ -428,10 +429,14 @@ def registro_view(request):
 @login_required
 def dashboard_view(request):
     tienda_actual = obtener_tienda_usuario(request.user)
+    
     if not tienda_actual:
         auth_logout(request)
         messages.error(request, "Tu usuario no tiene una tienda asignada. Contacta al administrador.")
         return redirect('inventario:portal')
+
+    referer = request.META.get('HTTP_REFERER', '')
+    show_splash = 'login' in referer
 
     hoy = timezone.localdate()
 
@@ -445,11 +450,12 @@ def dashboard_view(request):
 
     productos_bajo_stock = Producto.objects.filter(tienda=tienda_actual, stock__lte=5).count()
     
-    contexto = {
+    context = {
         'tienda': tienda_actual,
         'ventas_hoy_monto': ventas_hoy_monto,
         'total_ventas_hoy': total_ventas_hoy,
         'productos_bajo_stock': productos_bajo_stock,
+        'show_splash': show_splash, # Pasamos la variable al template
     }
     return render(request, 'inventario/dashboard.html', contexto)
 
@@ -1094,3 +1100,4 @@ def logout_view(request):
     response = redirect('inventario:portal')
     response['Location'] += f'?logout=true&nombre={nombre_completo}'
     return response
+
