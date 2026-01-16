@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante, Tienda, LoginLog, Perfil
+from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante, Tienda, LoginLog, Perfil, CajaDiaria, MovimientoCaja
 import json
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
@@ -20,7 +20,8 @@ from .forms import (
     RegistroTiendaForm, ProductoForm, ClienteForm, ProveedorForm, CompraForm, EmpleadoForm
 )
 from .resources import (
-    ProductoResource, ClienteResource, ProveedorResource, CompraResource
+    ProductoResource, ClienteResource, ProveedorResource, CompraResource, 
+    ComprobanteResource, CajaDiariaResource, MovimientoCajaResource # <--- AGREGADOS
 )
 from tablib import Dataset
 from django.views.decorators.csrf import csrf_exempt
@@ -28,6 +29,7 @@ from django.template.loader import get_template
 from io import BytesIO
 from xhtml2pdf import pisa
 from django.contrib import messages
+
 
 IMPORT_TYPES = {
     'clientes': {
@@ -1218,6 +1220,46 @@ def movimiento_caja_view(request):
         form = MovimientoCajaForm()
     
     return render(request, 'inventario/caja_movimiento.html', {'form': form})
+
+@login_required
+def exportar_modelo_generico_view(request, modelo):
+    tienda_actual = obtener_tienda_usuario(request.user)
+    if not tienda_actual:
+        messages.error(request, "No tienes una tienda asignada.")
+        return redirect('inventario:dashboard')
+
+    # Diccionario maestro de recursos y modelos
+    config = {
+        'productos': (Producto, ProductoResource),
+        'clientes': (Cliente, ClienteResource),
+        'proveedores': (Proveedor, ProveedorResource),
+        'compras': (Compra, CompraResource),
+        'comprobantes': (Comprobante, ComprobanteResource),
+        'cajas': (CajaDiaria, CajaDiariaResource),
+        'movimientos': (MovimientoCaja, MovimientoCajaResource),
+    }
+
+    if modelo not in config:
+        messages.error(request, "Módulo de exportación no válido.")
+        return redirect('inventario:dashboard')
+
+    Modelo, Recurso = config[modelo]
+    resource = Recurso()
+    
+    # Filtramos por tienda (seguridad para que no descarguen data de otros)
+    if modelo == 'movimientos':
+        queryset = Modelo.objects.filter(caja__tienda=tienda_actual)
+    else:
+        queryset = Modelo.objects.filter(tienda=tienda_actual)
+
+    dataset = resource.export(queryset)
+    
+    # Preparamos la descarga
+    fecha_hoy = timezone.now().strftime('%Y-%m-%d')
+    response = HttpResponse(dataset.xlsx, content_type='application/vnd.ms-excel')
+    response['Content-Disposition'] = f'attachment; filename="{modelo}_{fecha_hoy}.xlsx"'
+    return response
+
 
 
 
