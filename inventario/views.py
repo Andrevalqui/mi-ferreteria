@@ -14,8 +14,6 @@ from decimal import Decimal
 from django.urls import reverse
 from django.contrib.auth import views as auth_views
 from django.contrib.auth import logout as auth_logout
-
-# --- IMPORTS PARA EL PANEL DE CLIENTE Y SEGURIDAD ---
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .forms import (
@@ -31,10 +29,6 @@ from io import BytesIO
 from xhtml2pdf import pisa
 from django.contrib import messages
 
-
-# ==============================================================================
-# CONFIGURACIÓN IMPORTACIÓN MASIVA
-# ==============================================================================
 IMPORT_TYPES = {
     'clientes': {
         'resource': ClienteResource,
@@ -63,21 +57,13 @@ IMPORT_TYPES = {
 }
 
 # ==============================================================================
-# HELPER PARA VALIDAR DUEÑO O EMPLEADO (SOLUCIÓN PUNTO 8)
+# HELPER PARA VALIDAR DUEÑO O EMPLEADO
 # ==============================================================================
 def obtener_tienda_usuario(user):
-    """
-    Retorna la tienda asociada al usuario, ya sea porque es el Propietario
-    o porque es un Empleado vinculado mediante Perfil.
-    """
-    # 1. Verificar si es Dueño (relación directa OneToOne en Tienda)
     if hasattr(user, 'tienda'):
         return user.tienda
-    
-    # 2. Verificar si es Empleado (relación en modelo Perfil)
     if hasattr(user, 'perfil'):
         return user.perfil.tienda
-    
     return None
 
 
@@ -241,8 +227,6 @@ def registrar_compra_view(request):
                 if producto.tienda != tienda_actual:
                     raise ValueError(f"El producto '{producto.nombre}' no pertenece a tu tienda.")
                 
-                # Nota: Si usas la señal post_save en models.py, esto podría duplicar el stock.
-                # Como en tu código original lo tenías aquí, lo mantengo, pero revisa si tienes signals.
                 producto.stock += compra.cantidad
                 producto.save()
                 
@@ -264,30 +248,38 @@ def registrar_compra_view(request):
 
 
 def portal_view(request):
-    # Si el usuario ya está logueado, lo mandamos al dashboard directamente
     if request.user.is_authenticated:
         return redirect('inventario:dashboard')
     return render(request, 'inventario/portal.html')
 
-# === NUEVA VISTA: CATÁLOGO PÚBLICO ===
+# === NUEVA LÓGICA DE CATÁLOGO (ACTUALIZADA POR REQUERIMIENTO) ===
 def catalogo_view(request):
     """
-    Vista pública para que los clientes vean productos y filtren por categorías.
-    Muestra productos de TODAS las tiendas (o podrías filtrar si tuvieras lógica multi-dominio).
+    Vista pública del catálogo.
+    Filtra por 'categoria' usando el inicio del código de barras (MAT, HER, PIN, SEG).
     """
     query = request.GET.get('q', '')
     categoria = request.GET.get('categoria', '')
 
+    # Mostramos todos los productos ordenados
     productos = Producto.objects.all().order_by('nombre')
 
+    # Búsqueda general
     if query:
-        productos = productos.filter(nombre__icontains=query)
+        productos = productos.filter(
+            Q(nombre__icontains=query) | Q(codigo_barras__icontains=query)
+        )
     
+    # Filtro por Categoría basado en Código de Barras (ej: MAT-001)
     if categoria:
-        # Como no tienes un campo 'categoria' en el modelo Producto, 
-        # filtraremos usando el nombre del producto como aproximación.
-        # Ejemplo: si categoria='pintura', busca productos que digan 'pintura'.
-        productos = productos.filter(nombre__icontains=categoria)
+        if categoria == 'materiales':
+            productos = productos.filter(codigo_barras__istartswith='MAT')
+        elif categoria == 'herramienta':
+            productos = productos.filter(codigo_barras__istartswith='HER')
+        elif categoria == 'pintura':
+            productos = productos.filter(codigo_barras__istartswith='PIN')
+        elif categoria == 'seguridad':
+            productos = productos.filter(codigo_barras__istartswith='SEG')
 
     context = {
         'productos': productos,
@@ -435,11 +427,8 @@ def registro_view(request):
 
 @login_required
 def dashboard_view(request):
-    # SOLUCIÓN CRÍTICA: USAR LA FUNCIÓN HELPER
     tienda_actual = obtener_tienda_usuario(request.user)
-    
     if not tienda_actual:
-        # Si no hay tienda ni como dueño ni como empleado, cerramos sesión
         auth_logout(request)
         messages.error(request, "Tu usuario no tiene una tienda asignada. Contacta al administrador.")
         return redirect('inventario:portal')
@@ -1101,6 +1090,7 @@ def logout_view(request):
     
     auth_logout(request)
     
+    # Limpia URL params al hacer logout para seguridad
     response = redirect('inventario:portal')
     response['Location'] += f'?logout=true&nombre={nombre_completo}'
     return response
