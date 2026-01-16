@@ -31,10 +31,10 @@
             left: 50%;
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Asegura que el video cubra todo */
+            object-fit: cover; 
             transform: translate(-50%, -50%);
             z-index: 1;
-            opacity: 0.6; /* Un poco oscuro para que se lea el texto */
+            opacity: 0.5;
         }
         
         .hero-content {
@@ -66,7 +66,7 @@
             z-index: 10;
         }
 
-        /* Feature Cards Premium */
+        /* Feature Cards */
         .feature-card {
             border: none;
             transition: all 0.4s ease;
@@ -81,7 +81,7 @@
             cursor: pointer;
         }
         .feature-card:hover { 
-            transform: translateY(-15px); 
+            transform: translateY(-15px) scale(1.03); 
             box-shadow: 0 20px 40px rgba(0,0,0,0.15);
             border-bottom: 6px solid #ffc107;
         }
@@ -107,7 +107,7 @@
             margin: 15px auto 0;
         }
 
-        /* Misión/Visión/Contacto */
+        /* About Box */
         .about-box {
             background: #fff;
             padding: 35px;
@@ -115,10 +115,11 @@
             box-shadow: 0 5px 20px rgba(0,0,0,0.05);
             height: 100%;
             border-left: 5px solid #ffc107;
-            transition: transform 0.3s ease; /* Efecto dinámico */
+            transition: all 0.3s ease;
         }
         .about-box:hover {
-            transform: translateY(-10px); /* Movimiento al pasar mouse */
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
         }
 
         .contact-item { margin-bottom: 25px; display: flex; align-items: center; font-size: 1.1rem; }
@@ -138,26 +139,31 @@
             flex-direction: column; align-items: center; justify-content: center;
             z-index: 99999; color: white; text-align: center;
         }
+        
         .splash-text { 
-            font-family: 'Anton', sans-serif; 
-            font-size: 3rem; 
+            font-family: 'Anton', sans-serif;
+            font-size: 3.5rem; 
             margin-bottom: 20px;
-            font-weight: bold; /* Negrita */
+            font-weight: bold; 
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
-        /* Animación de palpitación para el logo */
         @keyframes pulse-logo {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255, 193, 7, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
         }
+        
         .splash-logo {
-            width: 150px;
-            height: 150px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            animation: pulse-logo 1.5s infinite; /* Palpitación infinita */
-            box-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
+            width: 180px;
+            height: 180px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            animation: pulse-logo 2s infinite;
+            object-fit: contain;
+            background: white;
+            padding: 10px;
         }
     </style>
 </head>
@@ -165,23 +171,28 @@
 
     <!-- OVERLAY DEL SPLASH SCREEN -->
     <div id="splash-overlay">
-        <!-- Logo con animación de palpitación -->
         <img src="{% static 'inventario/images/logo.jpeg' %}" class="splash-logo" alt="Logo Cargando">
-        <div class="splash-text" id="splash-message">FERRETERÍA TAPIA MELENDEZ</div>
+        <!-- El texto cambiará dinámicamente según el botón presionado -->
+        <div class="splash-text" id="splash-message">CARGANDO...</div>
         <div class="spinner-border text-warning" style="width: 3rem; height: 3rem;" role="status"></div>
     </div>
 
-    <!-- Botón de Acceso para Personal -->
-    <a href="{% url 'inventario:login' %}" class="btn btn-warning btn-lg fw-bold btn-employee shadow rounded-pill" id="btn-acceso">
-        <i class="fas fa-user-lock me-2"></i> Acceso Intranet
-    </a>
+    <!-- LÓGICA DE BOTÓN DINÁMICO (LOGUEADO VS NO LOGUEADO) -->
+    {% if user.is_authenticated %}
+        <!-- Si está logueado: Botón para volver al Portal de Trabajo -->
+        <a href="{% url 'inventario:dashboard' %}" class="btn btn-info btn-lg fw-bold btn-employee shadow rounded-pill text-white" id="btn-regreso-portal">
+            <i class="fas fa-undo-alt me-2"></i> REGRESAR AL PORTAL
+        </a>
+    {% else %}
+        <!-- Si NO está logueado: Botón para ir al Login -->
+        <a href="{% url 'inventario:login' %}" class="btn btn-warning btn-lg fw-bold btn-employee shadow rounded-pill" id="btn-acceso">
+            <i class="fas fa-user-lock me-2"></i> ACCESO INTRANET
+        </a>
+    {% endif %}
 
-    <!-- Portada Principal con VIDEO -->
+    <!-- Portada Principal -->
     <header class="hero">
-        <!-- VIDEO DE FONDO -->
         <video autoplay muted loop playsinline poster="{% static 'inventario/images/portada.jpeg' %}">
-            <!-- Asegúrate de tener un video en static/inventario/videos/portada.mp4 -->
-            <!-- Si no hay video, se verá la imagen 'poster' -->
             <source src="{% static 'inventario/videos/portada.mp4' %}" type="video/mp4">
         </video>
         
@@ -189,7 +200,7 @@
             <h1 class="brand-title">FERRETERÍA TAPIA MELENDEZ</h1>
             <p class="mb-5">Tu socio confiable en construcción. Herramientas profesionales y acabados de primera calidad.</p>
             
-            <a href="https://wa.me/51997317288" target="_blank" class="btn btn-success btn-lg px-5 py-3 fw-bold rounded-pill shadow">
+            <a href="https://wa.me/51969117667" target="_blank" class="btn btn-success btn-lg px-5 py-3 fw-bold rounded-pill shadow">
                 <i class="fab fa-whatsapp me-2"></i> Cotizar Ahora
             </a>
         </div>
@@ -199,7 +210,6 @@
     <section class="container my-5 py-5">
         <h2 class="section-title">Nuestras Soluciones</h2>
         <div class="row text-center g-4">
-            <!-- TARJETA MATERIALES (NUEVA) -->
             <div class="col-md-3">
                 <a href="{% url 'inventario:catalogo' %}?categoria=materiales" class="feature-card">
                     <i class="fas fa-cubes feature-icon"></i>
@@ -207,7 +217,6 @@
                     <p class="text-muted">Cemento, fierros, clavos y agregados para tu construcción.</p>
                 </a>
             </div>
-            <!-- TARJETAS EXISTENTES -->
             <div class="col-md-3">
                 <a href="{% url 'inventario:catalogo' %}?categoria=herramienta" class="feature-card">
                     <i class="fas fa-hammer feature-icon"></i>
@@ -232,7 +241,7 @@
         </div>
     </section>
 
-    <!-- Misión y Visión DINÁMICAS -->
+    <!-- Misión y Visión -->
     <section class="bg-light py-5">
         <div class="container">
             <div class="row g-5">
@@ -294,7 +303,6 @@
                 </div>
             </div>
             <div class="col-lg-7">
-                <!-- Mapa de Pacasmayo (Referencia aproximada) -->
                 <div class="rounded shadow overflow-hidden" style="height: 450px;">
                     <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15829.497589255052!2d-79.5705!3d-7.4005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x904d4f6a5b5b5b5b%3A0x123456789!2sPacasmayo!5e0!3m2!1ses!2spe!4v1620000000000!5m2!1ses!2spe" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
                 </div>
@@ -304,7 +312,6 @@
 
     <footer class="bg-dark text-white text-center py-4">
         <div class="container">
-            <!-- AÑO DINÁMICO -->
             <p class="mb-1 fw-bold fs-5">&copy; {% now "Y" %} Ferretería Tapia Melendez. Todos los derechos reservados.</p>
             <small class="text-white-50">Sistema desarrollado para gestión de ferreterías.</small>
         </div>
@@ -314,23 +321,38 @@
         const splash = document.getElementById('splash-overlay');
         const splashMsg = document.getElementById('splash-message');
 
-        document.getElementById('btn-acceso').addEventListener('click', function(e) {
-            e.preventDefault();
-            const targetUrl = this.href;
-            splashMsg.innerText = "FERRETERÍA TAPIA MELENDEZ";
-            splash.style.display = 'flex';
-            setTimeout(() => { window.location.href = targetUrl; }, 1500);
-        });
+        // LÓGICA PARA BOTÓN "ACCESO INTRANET" (Si no está logueado)
+        const btnAcceso = document.getElementById('btn-acceso');
+        if (btnAcceso) {
+            btnAcceso.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetUrl = this.href;
+                splashMsg.innerText = "FERRETERÍA TAPIA MELENDEZ"; // Texto normal
+                splash.style.display = 'flex';
+                setTimeout(() => { window.location.href = targetUrl; }, 1500);
+            });
+        }
 
+        // LÓGICA PARA BOTÓN "REGRESAR AL PORTAL" (Si está logueado)
+        const btnRegreso = document.getElementById('btn-regreso-portal');
+        if (btnRegreso) {
+            btnRegreso.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetUrl = this.href;
+                splashMsg.innerText = "REDIRIGIENDO AL PORTAL"; // Texto pedido
+                splash.style.display = 'flex';
+                setTimeout(() => { window.location.href = targetUrl; }, 1500);
+            });
+        }
+
+        // SPLASH DE DESPEDIDA (LOGOUT)
         window.addEventListener('load', function() {
-            // LIMPIEZA DE URL PARA SEGURIDAD (Evitar re-logout al dar F5)
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('logout')) {
                 const nombre = urlParams.get('nombre') || 'USUARIO';
                 splashMsg.innerHTML = `¡HASTA PRONTO!<br><span style="color:#ffc107">${nombre.toUpperCase()}</span>`;
                 splash.style.display = 'flex';
                 
-                // Limpiar URL inmediatamente
                 window.history.replaceState({}, document.title, window.location.pathname);
 
                 setTimeout(() => { 
