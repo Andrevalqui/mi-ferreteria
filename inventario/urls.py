@@ -38,6 +38,7 @@ urlpatterns = [
     # --- RUTAS PARA IMPORTACIÓN/EXPORTACIÓN DEL CLIENTE (GENÉRICAS Y MULTI-TENANT) ---
     # URLs para exportar (todas filtradas por tienda en la vista)
     path('exportar/productos/', views.exportar_productos_view, name='exportar_productos'),
+    path('exportar-global/<str:modelo>/', views.exportar_modelo_generico_view, name='exportar_global'),
     
     # URL para descargar plantillas de importación (nueva y genérica)
     # Ejemplo de uso: /descargar-plantilla/clientes/  o /descargar-plantilla/productos/
@@ -62,6 +63,7 @@ urlpatterns = [
     path('caja/cierre/', views.cierre_caja_view, name='cierre_caja'),
     path('caja/movimiento/', views.movimiento_caja_view, name='movimiento_caja'),
 ]
+
 
 
 
