@@ -21,7 +21,13 @@
     {% if modelo_slug == 'productos' %}
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>{{ modelo_nombre_plural|title }}</h2>
-            <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Producto</a>
+            <div>
+                <!-- BOTÓN EXCEL POWER BI (NUEVO) -->
+                <a href="{% url 'inventario:exportar_global' modelo=modelo_slug %}" class="btn btn-success me-2">
+                    <i class="fas fa-file-excel"></i> Exportar Data (Power BI)
+                </a>
+                <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Producto</a>
+            </div>
         </div>
 
         <!-- BUSCADOR INTELIGENTE PRODUCTOS -->
@@ -114,7 +120,13 @@
     {% elif modelo_slug == 'clientes' %}
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>{{ modelo_nombre_plural|title }}</h2>
-            <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Cliente</a>
+            <div>
+                <!-- BOTÓN EXCEL POWER BI (NUEVO) -->
+                <a href="{% url 'inventario:exportar_global' modelo=modelo_slug %}" class="btn btn-success me-2">
+                    <i class="fas fa-file-excel"></i> Exportar Data (Power BI)
+                </a>
+                <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Cliente</a>
+            </div>
         </div>
 
         <!-- BUSCADOR INTELIGENTE CLIENTES -->
@@ -218,7 +230,13 @@
     {% elif modelo_slug == 'proveedores' %}
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>{{ modelo_nombre_plural|title }}</h2>
-            <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Proveedor</a>
+            <div>
+                <!-- BOTÓN EXCEL POWER BI (NUEVO) -->
+                <a href="{% url 'inventario:exportar_global' modelo=modelo_slug %}" class="btn btn-success me-2">
+                    <i class="fas fa-file-excel"></i> Exportar Data (Power BI)
+                </a>
+                <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Proveedor</a>
+            </div>
         </div>
 
         <!-- BUSCADOR INTELIGENTE PROVEEDORES -->
@@ -302,7 +320,13 @@
     {% elif modelo_slug == 'compras' %}
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>{{ modelo_nombre_plural|title }}</h2>
-            <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nueva Compra</a>
+            <div>
+                <!-- BOTÓN EXCEL POWER BI (NUEVO) -->
+                <a href="{% url 'inventario:exportar_global' modelo=modelo_slug %}" class="btn btn-success me-2">
+                    <i class="fas fa-file-excel"></i> Exportar Data (Power BI)
+                </a>
+                <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo Compra</a>
+            </div>
         </div>
 
         <!-- BUSCADOR INTELIGENTE COMPRAS -->
@@ -395,9 +419,16 @@
     {% elif modelo_slug == 'comprobantes' %}
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>{{ modelo_nombre_plural|title }}</h2>
-            <a href="{% url 'inventario:exportar_comprobantes' %}" class="btn btn-success">
-                <i class="fas fa-file-excel"></i> Exportar a Excel
-            </a>
+            <div>
+                <!-- BOTÓN EXCEL POWER BI (NUEVO) -->
+                <a href="{% url 'inventario:exportar_global' modelo=modelo_slug %}" class="btn btn-success me-2">
+                    <i class="fas fa-file-excel"></i> Exportar Data (Power BI)
+                </a>
+                <!-- NOTA: El botón "Añadir" en comprobantes se maneja desde el POS, por eso no se muestra aquí -->
+                <a href="{% url 'inventario:exportar_comprobantes' %}" class="btn btn-info text-white">
+                    <i class="fas fa-file-excel"></i> Reporte Detallado
+                </a>
+            </div>
         </div>
 
         <!-- BUSCADOR INTELIGENTE COMPROBANTES -->
@@ -458,7 +489,14 @@
     {% else %}
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>{{ modelo_nombre_plural|title }}</h2>
-            <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo</a>
+            <div>
+                <!-- BOTÓN EXCEL POWER BI (NUEVO) -->
+                <!-- Este bloque 'else' cubre cualquier otro modelo futuro, así que también le ponemos el botón -->
+                <a href="{% url 'inventario:exportar_global' modelo=modelo_slug %}" class="btn btn-success me-2">
+                    <i class="fas fa-file-excel"></i> Exportar Data (Power BI)
+                </a>
+                <a href="{% url 'inventario:gestion_crear' modelo=modelo_slug %}" class="btn btn-primary">Añadir Nuevo</a>
+            </div>
         </div>
 
         <!-- BUSCADOR INTELIGENTE OTROS -->
