@@ -96,7 +96,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.WhiteNoiseStorage", 
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage", # <--- ESTA ES LA CLASE CORRECTA
     },
 }
 # Media files (Carga de imágenes - OJO: Vercel no guarda esto permanentemente, usar S3/Cloudinary en el futuro)
@@ -109,6 +109,7 @@ LOGIN_URL = 'inventario:login'
 LOGIN_REDIRECT_URL = 'inventario:dashboard'
 
 LOGOUT_REDIRECT_URL = 'inventario:portal'
+
 
 
 
