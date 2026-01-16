@@ -87,7 +87,9 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # AGREGA ESTA LÍNEA AQUÍ:
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'inventario', 'static')]
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'inventario', 'static'),
+]
 
 STORAGES = {
     "default": {
@@ -107,6 +109,7 @@ LOGIN_URL = 'inventario:login'
 LOGIN_REDIRECT_URL = 'inventario:dashboard'
 
 LOGOUT_REDIRECT_URL = 'inventario:portal'
+
 
 
 
