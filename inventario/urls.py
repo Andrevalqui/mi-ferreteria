@@ -7,7 +7,8 @@ app_name = 'inventario'
 
 urlpatterns = [
     # --- RUTAS PÚBLICAS Y DE AUTENTICACIÓN ---
-    path('', views.portal_view, name='portal'), # El nombre es 'portal'
+    path('', views.portal_view, name='portal'),
+    path('catalogo/', views.catalogo_view, name='catalogo'),
     path('registro/', views.registro_view, name='registro'),
     path('login/', auth_views.LoginView.as_view(template_name='inventario/login.html'), name='login'),
     path('logout/', views.logout_view, name='logout'),
@@ -57,8 +58,8 @@ urlpatterns = [
     path('mis-usuarios/eliminar/<int:usuario_id>/', views.eliminar_usuario_tienda, name='eliminar_usuario_tienda'),
     path('gestion/<str:modelo>/eliminar/<int:pk>/', views.gestion_eliminar_view, name='gestion_eliminar'),
     path('pos/crear-cliente-ajax/', views.crear_cliente_ajax_view, name='crear_cliente_ajax'),
-    path('catalogo/', views.catalogo_publico_view, name='catalogo'),
 ]
+
 
 
 
