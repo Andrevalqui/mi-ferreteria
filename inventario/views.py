@@ -1,24 +1,32 @@
+# inventario/views.py
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import (
-    Producto, Venta, Proveedor, Compra, Cliente, Comprobante, 
-    DetalleComprobante, Tienda, LoginLog, Perfil, CajaDiaria, MovimientoCaja
-)
-import json
+from django.views.decorators.csrf import csrf_exempt # <--- MOVIDO AL PRINCIPIO
+from django.http import HttpResponse, JsonResponse 
+from django.db import transaction
+from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
-from datetime import datetime, timedelta, time
 from django.db.models.functions import TruncDay
 from django.utils.timezone import make_aware 
 from django.db.models import F 
-import openpyxl
-from django.http import HttpResponse, JsonResponse 
-from django.db import transaction 
-from decimal import Decimal 
 from django.urls import reverse
 from django.contrib.auth import views as auth_views
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.template.loader import get_template
+from decimal import Decimal 
+import json
+import openpyxl
+from io import BytesIO
+from xhtml2pdf import pisa
+from tablib import Dataset
+
+# Importaciones locales de tu App
+from .models import (
+    Producto, Venta, Proveedor, Compra, Cliente, Comprobante, 
+    DetalleComprobante, Tienda, LoginLog, Perfil, CajaDiaria, MovimientoCaja
+)
 from .forms import (
     RegistroTiendaForm, ProductoForm, ClienteForm, ProveedorForm, 
     CompraForm, EmpleadoForm, AperturaCajaForm, CierreCajaForm, MovimientoCajaForm
@@ -27,12 +35,6 @@ from .resources import (
     ProductoResource, ClienteResource, ProveedorResource, CompraResource, 
     ComprobanteResource, CajaDiariaResource, MovimientoCajaResource
 )
-from django.views.decorators.csrf import csrf_exempt
-from django.template.loader import get_template  # <--- ESTE FALTABA
-from io import BytesIO                            # <--- ESTE FALTABA
-from xhtml2pdf import pisa                        # <--- ESTE FALTABA
-from tablib import Dataset                        # <--- ESTE FALTABA
-from django.contrib import messages
 
 IMPORT_TYPES = {
     'clientes': {
@@ -1119,10 +1121,6 @@ def logout_view(request):
     response['Location'] += f'?logout=true&nombre={nombre_completo}'
     return response
 
-# === GESTIÓN DE CAJA (NUEVO MÓDULO) ===
-from .forms import AperturaCajaForm, CierreCajaForm, MovimientoCajaForm
-from .models import CajaDiaria, MovimientoCaja
-
 @login_required
 def apertura_caja_view(request):
     tienda_actual = obtener_tienda_usuario(request.user)
@@ -1262,11 +1260,3 @@ def exportar_modelo_generico_view(request, modelo):
     response = HttpResponse(dataset.xlsx, content_type='application/vnd.ms-excel')
     response['Content-Disposition'] = f'attachment; filename="{modelo}_{fecha_hoy}.xlsx"'
     return response
-
-
-
-
-
-
-
-
