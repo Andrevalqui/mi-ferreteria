@@ -4,7 +4,43 @@
 
 {% block extra_styles %}
 <style>
-    /* === INICIO: DISEÑO DE TÍTULO Y EFECTOS === */
+    /* === SPLASH DE BIENVENIDA (Solo se mostrará si show_splash es True) === */
+    #welcome-splash {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #1d2b38;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        color: white;
+        text-align: center;
+    }
+    .welcome-text {
+        font-family: 'Anton', sans-serif;
+        font-size: 3.5rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+    .splash-logo-dashboard {
+        width: 120px;
+        height: 120px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
+        animation: pulse-logo 1.5s infinite;
+    }
+    @keyframes pulse-logo {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    /* === DISEÑO DE TÍTULO Y EFECTOS === */
     @keyframes animated-gradient {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
@@ -69,7 +105,21 @@
 
 
 {% block content %}
-<!-- EL SPLASH SCREEN HA SIDO ELIMINADO PARA CARGA INMEDIATA -->
+<!-- SPLASH DE BIENVENIDA DINÁMICO (CONTROLADO POR BACKEND) -->
+{% if show_splash %}
+    {% load static %}
+    <div id="welcome-splash">
+        <!-- Logo agregado con animación -->
+        <img src="{% static 'inventario/images/logo.jpeg' %}" class="splash-logo-dashboard" alt="Logo">
+        
+        <div class="welcome-text">
+            BIENVENIDO <br>
+            <span style="color: #ffc107;">{{ user.get_full_name|upper }}</span> <br>
+            AL PORTAL
+        </div>
+        <div class="spinner-border text-warning mt-4" style="width: 3rem; height: 3rem;"></div>
+    </div>
+{% endif %}
 
 <div class="container-fluid mt-4">
     <h1 class="dashboard-title">Panel de Control</h1>
@@ -153,4 +203,21 @@
         </div>
     </div>
 </div>
+
+{% if show_splash %}
+<script>
+    // Lógica para ocultar el splash de bienvenida después de unos segundos
+    window.addEventListener('load', function() {
+        const splash = document.getElementById('welcome-splash');
+        if (splash) {
+            setTimeout(() => {
+                splash.style.transition = "opacity 0.8s";
+                splash.style.opacity = "0";
+                setTimeout(() => { splash.style.display = 'none'; }, 800);
+            }, 2000);
+        }
+    });
+</script>
+{% endif %}
+
 {% endblock %}
