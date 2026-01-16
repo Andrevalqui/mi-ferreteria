@@ -64,10 +64,23 @@
     document.addEventListener('DOMContentLoaded', function () {
         const ctx = document.getElementById('stockChart');
         
-        const labels = JSON.parse('{{ chart_labels|safe }}');
-        const data = JSON.parse('{{ chart_data|safe }}');
+        // --- CAMBIO CLAVE: Se elimina JSON.parse y las comillas simples ---
+        // Django ya envía la lista formateada correctamente desde la vista corregida.
+        // Esto evita que productos como "Clavos 1/8''" rompan el JavaScript.
+        const labels = {{ chart_labels|safe }};
+        const data = {{ chart_data|safe }};
 
-        if (data.length === 0) return;
+        // Verificación en consola (útil para debug)
+        console.log("Etiquetas cargadas:", labels);
+
+        if (data.length === 0) {
+            // Mensaje si no hay datos
+            const ctx2d = ctx.getContext("2d");
+            ctx2d.font = "16px Arial";
+            ctx2d.textAlign = "center";
+            ctx2d.fillText("No hay productos con stock bajo para graficar", ctx.width/2, ctx.height/2);
+            return;
+        }
 
         new Chart(ctx, {
             type: 'bar',
@@ -103,7 +116,7 @@
                     x: {
                         beginAtZero: true,
                         ticks: {
-                            stepSize: 1,
+                            // Se eliminó stepSize fijo para permitir decimales si los hubiera
                             color: '#212529',
                             font: {
                                 size: 14,
