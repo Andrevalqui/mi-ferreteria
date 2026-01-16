@@ -28,6 +28,11 @@ from .resources import (
     ComprobanteResource, CajaDiariaResource, MovimientoCajaResource
 )
 from django.views.decorators.csrf import csrf_exempt
+from django.template.loader import get_template  # <--- ESTE FALTABA
+from io import BytesIO                            # <--- ESTE FALTABA
+from xhtml2pdf import pisa                        # <--- ESTE FALTABA
+from tablib import Dataset                        # <--- ESTE FALTABA
+from django.contrib import messages
 
 IMPORT_TYPES = {
     'clientes': {
@@ -1257,6 +1262,7 @@ def exportar_modelo_generico_view(request, modelo):
     response = HttpResponse(dataset.xlsx, content_type='application/vnd.ms-excel')
     response['Content-Disposition'] = f'attachment; filename="{modelo}_{fecha_hoy}.xlsx"'
     return response
+
 
 
 
