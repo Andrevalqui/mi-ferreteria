@@ -298,12 +298,16 @@ def reporte_stock_bajo_view(request):
         return redirect('inventario:dashboard')
 
     umbral_stock_bajo = 5 
-    productos_bajos_stock = Producto.objects.filter(stock__lte=umbral_stock_bajo, tienda=tienda_actual).order_by('stock')
-    chart_labels = [producto.nombre for producto in productos_bajos_stock]
-    chart_data = [producto.stock for producto in productos_bajos_stock]
+    productos_bajos_stock = Producto.objects.filter(tienda=tienda_actual, stock__lte=umbral_stock_bajo).order_by('stock')
+    
+    # --- CORRECCIÓN: Convertir Decimal a float para JSON ---
+    chart_labels = [p.nombre for p in productos_bajos_stock]
+    chart_data = [float(p.stock) for p in productos_bajos_stock] 
+
     contexto = {
         'productos': productos_bajos_stock,
         'umbral': umbral_stock_bajo,
+        # Usamos json.dumps para crear el string JSON aquí
         'chart_labels': json.dumps(chart_labels),
         'chart_data': json.dumps(chart_data),
     }
@@ -1102,5 +1106,6 @@ def logout_view(request):
     response = redirect('inventario:portal')
     response['Location'] += f'?logout=true&nombre={nombre_completo}'
     return response
+
 
 
