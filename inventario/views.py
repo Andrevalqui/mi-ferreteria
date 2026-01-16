@@ -1,5 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Producto, Venta, Proveedor, Compra, Cliente, Comprobante, DetalleComprobante, Tienda, LoginLog, Perfil, CajaDiaria, MovimientoCaja
+from .models import (
+    Producto, Venta, Proveedor, Compra, Cliente, Comprobante, 
+    DetalleComprobante, Tienda, LoginLog, Perfil, CajaDiaria, MovimientoCaja
+)
 import json
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
@@ -17,19 +20,13 @@ from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .forms import (
-    RegistroTiendaForm, ProductoForm, ClienteForm, ProveedorForm, CompraForm, EmpleadoForm
+    RegistroTiendaForm, ProductoForm, ClienteForm, ProveedorForm, 
+    CompraForm, EmpleadoForm, AperturaCajaForm, CierreCajaForm, MovimientoCajaForm
 )
 from .resources import (
     ProductoResource, ClienteResource, ProveedorResource, CompraResource, 
-    ComprobanteResource, CajaDiariaResource, MovimientoCajaResource # <--- AGREGADOS
+    ComprobanteResource, CajaDiariaResource, MovimientoCajaResource
 )
-from tablib import Dataset
-from django.views.decorators.csrf import csrf_exempt
-from django.template.loader import get_template
-from io import BytesIO
-from xhtml2pdf import pisa
-from django.contrib import messages
-
 
 IMPORT_TYPES = {
     'clientes': {
@@ -1259,6 +1256,7 @@ def exportar_modelo_generico_view(request, modelo):
     response = HttpResponse(dataset.xlsx, content_type='application/vnd.ms-excel')
     response['Content-Disposition'] = f'attachment; filename="{modelo}_{fecha_hoy}.xlsx"'
     return response
+
 
 
 
