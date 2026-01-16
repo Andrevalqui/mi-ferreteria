@@ -1,3 +1,5 @@
+# inventario/migrations/0002_agregar_caja.py
+
 from django.db import migrations, models
 import django.db.models.deletion
 from django.conf import settings
@@ -6,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('inventario', '0001_initial'), # Esto conecta con el archivo anterior
+        ('inventario', '0001_initial'), 
     ]
 
     operations = [
