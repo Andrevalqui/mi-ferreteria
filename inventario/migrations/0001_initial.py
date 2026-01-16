@@ -1,5 +1,3 @@
-# inventario/migrations/0001_initial.py
-
 from django.db import migrations, models
 import django.db.models.deletion
 from django.conf import settings
@@ -13,6 +11,18 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.CreateModel(
+            name='Tienda',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('nombre', models.CharField(max_length=100)),
+                ('ruc', models.CharField(default='00000000000', max_length=11)),
+                ('direccion', models.CharField(blank=True, max_length=255, null=True)),
+                ('creada_en', models.DateTimeField(auto_now_add=True)),
+                ('logo', models.ImageField(blank=True, help_text='Logo de la tienda', null=True, upload_to='logos_tiendas/')),
+                ('propietario', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='tienda', to=settings.AUTH_USER_MODEL)),
+            ],
+        ),
         migrations.CreateModel(
             name='Tienda',
             fields=[
@@ -183,7 +193,6 @@ class Migration(migrations.Migration):
                 'ordering': ['-timestamp'],
             },
         ),
-        # --- TABLAS NUEVAS DE CAJA ---
         migrations.CreateModel(
             name='CajaDiaria',
             fields=[
