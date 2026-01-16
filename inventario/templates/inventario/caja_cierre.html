@@ -1,0 +1,62 @@
+{% extends 'inventario/base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-dark text-white text-center">
+                    <h2><i class="fas fa-lock"></i> Cierre de Caja</h2>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Resumen del Sistema -->
+                    <div class="alert alert-info">
+                        <h5 class="alert-heading fw-bold"><i class="fas fa-calculator"></i> Resumen del Sistema</h5>
+                        <hr>
+                        <div class="row">
+                            <div class="col-6">Monto Inicial:</div>
+                            <div class="col-6 text-end fw-bold">S/ {{ caja.monto_inicial }}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 text-success">Total Ventas (Efectivo):</div>
+                            <div class="col-6 text-end fw-bold text-success">+ S/ {{ ventas }}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 text-primary">Otros Ingresos:</div>
+                            <div class="col-6 text-end fw-bold text-primary">+ S/ {{ ingresos }}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 text-danger">Gastos / Salidas:</div>
+                            <div class="col-6 text-end fw-bold text-danger">- S/ {{ egresos }}</div>
+                        </div>
+                        <hr>
+                        <div class="row fs-4">
+                            <div class="col-6 fw-bold">DEBERÍA HABER:</div>
+                            <div class="col-6 text-end fw-bold">S/ {{ total_sistema }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de Conteo -->
+                    <form method="post" class="mt-4 border p-3 rounded bg-light">
+                        {% csrf_token %}
+                        <h5 class="mb-3 text-center">Conteo de Dinero Físico</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">¿Cuánto dinero contaste en el cajón?</label>
+                            <input type="number" name="monto_final_real" step="0.01" class="form-control form-control-lg text-center fw-bold" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observaciones:</label>
+                            <textarea name="observaciones" class="form-control" rows="2"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-danger w-100 btn-lg fw-bold" onclick="return confirm('¿Seguro que deseas cerrar caja? Esto no se puede deshacer.')">
+                            CONFIRMAR CIERRE DE DÍA
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
