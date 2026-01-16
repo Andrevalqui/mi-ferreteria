@@ -78,6 +78,13 @@ def pos_view(request):
         messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
         return redirect('inventario:portal')
 
+    from .models import CajaDiaria # Importación local para evitar ciclos
+    caja_abierta = CajaDiaria.objects.filter(tienda=tienda_actual, estado='ABIERTA').first()
+    
+    if not caja_abierta:
+        messages.warning(request, "⚠️ DEBES ABRIR CAJA PARA PODER VENDER.")
+        return redirect('inventario:apertura_caja')
+
     productos = Producto.objects.filter(tienda=tienda_actual)
     clientes = Cliente.objects.filter(tienda=tienda_actual)
     
@@ -1106,6 +1113,112 @@ def logout_view(request):
     response = redirect('inventario:portal')
     response['Location'] += f'?logout=true&nombre={nombre_completo}'
     return response
+
+# === GESTIÓN DE CAJA (NUEVO MÓDULO) ===
+from .forms import AperturaCajaForm, CierreCajaForm, MovimientoCajaForm
+from .models import CajaDiaria, MovimientoCaja
+
+@login_required
+def apertura_caja_view(request):
+    tienda_actual = obtener_tienda_usuario(request.user)
+    if not tienda_actual: return redirect('inventario:dashboard')
+
+    # Verificar si ya hay una abierta
+    if CajaDiaria.objects.filter(tienda=tienda_actual, estado='ABIERTA').exists():
+        messages.info(request, "Ya tienes una caja abierta. Ciérrala antes de abrir otra.")
+        return redirect('inventario:pos')
+
+    if request.method == 'POST':
+        form = AperturaCajaForm(request.POST)
+        if form.is_valid():
+            caja = form.save(commit=False)
+            caja.tienda = tienda_actual
+            caja.usuario_apertura = request.user
+            caja.estado = 'ABIERTA'
+            caja.save()
+            messages.success(request, f"Caja abierta con S/ {caja.monto_inicial}")
+            return redirect('inventario:pos')
+    else:
+        form = AperturaCajaForm()
+    
+    return render(request, 'inventario/caja_apertura.html', {'form': form})
+
+@login_required
+def cierre_caja_view(request):
+    tienda_actual = obtener_tienda_usuario(request.user)
+    # Buscamos la caja abierta
+    caja = CajaDiaria.objects.filter(tienda=tienda_actual, estado='ABIERTA').first()
+    
+    if not caja:
+        messages.error(request, "No hay ninguna caja abierta para cerrar.")
+        return redirect('inventario:dashboard')
+
+    # Calcular totales
+    ventas_del_dia = Comprobante.objects.filter(
+        tienda=tienda_actual, 
+        fecha_emision__gte=caja.fecha_apertura,
+        estado='EMITIDO'
+    ).aggregate(total=Sum('total_final'))['total'] or Decimal('0.00')
+
+    ingresos_extras = caja.movimientos.filter(tipo='INGRESO').aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+    egresos_varios = caja.movimientos.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+
+    # Fórmula: Inicial + Ventas + IngresosExtras - Gastos
+    total_sistema = caja.monto_inicial + ventas_del_dia + ingresos_extras - egresos_varios
+
+    if request.method == 'POST':
+        form = CierreCajaForm(request.POST, instance=caja)
+        if form.is_valid():
+            cierre = form.save(commit=False)
+            cierre.monto_final_sistema = total_sistema
+            cierre.diferencia = cierre.monto_final_real - total_sistema
+            cierre.usuario_cierre = request.user
+            cierre.fecha_cierre = timezone.now()
+            cierre.estado = 'CERRADA'
+            cierre.save()
+            
+            estado_cierre = "CUADRÓ PERFECTO"
+            if cierre.diferencia > 0: estado_cierre = f"SOBRÓ S/ {cierre.diferencia}"
+            elif cierre.diferencia < 0: estado_cierre = f"FALTÓ S/ {abs(cierre.diferencia)}"
+            
+            messages.success(request, f"Caja cerrada exitosamente. Resultado: {estado_cierre}")
+            return redirect('inventario:dashboard')
+    else:
+        form = CierreCajaForm()
+
+    contexto = {
+        'form': form,
+        'caja': caja,
+        'ventas': ventas_del_dia,
+        'ingresos': ingresos_extras,
+        'egresos': egresos_varios,
+        'total_sistema': total_sistema
+    }
+    return render(request, 'inventario/caja_cierre.html', contexto)
+
+@login_required
+def movimiento_caja_view(request):
+    tienda_actual = obtener_tienda_usuario(request.user)
+    caja = CajaDiaria.objects.filter(tienda=tienda_actual, estado='ABIERTA').first()
+    
+    if not caja:
+        messages.error(request, "Abre caja primero para registrar gastos o ingresos.")
+        return redirect('inventario:dashboard')
+
+    if request.method == 'POST':
+        form = MovimientoCajaForm(request.POST)
+        if form.is_valid():
+            mov = form.save(commit=False)
+            mov.caja = caja
+            mov.usuario = request.user
+            mov.save()
+            messages.success(request, "Movimiento registrado.")
+            return redirect('inventario:pos')
+    else:
+        form = MovimientoCajaForm()
+    
+    return render(request, 'inventario/caja_movimiento.html', {'form': form})
+
 
 
 
