@@ -27,6 +27,7 @@ from .resources import (
     ProductoResource, ClienteResource, ProveedorResource, CompraResource, 
     ComprobanteResource, CajaDiariaResource, MovimientoCajaResource
 )
+from django.views.decorators.csrf import csrf_exempt
 
 IMPORT_TYPES = {
     'clientes': {
@@ -1256,6 +1257,7 @@ def exportar_modelo_generico_view(request, modelo):
     response = HttpResponse(dataset.xlsx, content_type='application/vnd.ms-excel')
     response['Content-Disposition'] = f'attachment; filename="{modelo}_{fecha_hoy}.xlsx"'
     return response
+
 
 
 
