@@ -648,8 +648,16 @@ def crear_cliente_ajax_view(request):
     return JsonResponse({'error': 'Error'}, status=405)
 
 def logout_view(request):
+    """Lógica para activar Splash de Despedida"""
+    nombre = "Usuario"
+    if request.user.is_authenticated:
+        nombre = request.user.first_name or request.user.username
+    
     auth_logout(request)
-    return redirect('inventario:portal')
+    # Redirigimos con parámetros para que el JS de portal.html los detecte
+    response = redirect('inventario:portal')
+    response['Location'] += f'?logout=true&nombre={nombre}'
+    return response)
 
 
 # ==============================================================================
@@ -716,3 +724,4 @@ def exportar_modelo_generico_view(request, modelo):
     response = HttpResponse(dataset.xlsx, content_type='application/vnd.ms-excel')
     response['Content-Disposition'] = f'attachment; filename="{modelo}.xlsx"'
     return response
+
