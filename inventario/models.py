@@ -236,7 +236,34 @@ class Perfil(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.tienda.nombre} ({self.rol})"
 
+class CajaDiaria(models.Model):
+    tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='cajas')
+    usuario_apertura = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='cajas_abiertas')
+    usuario_cierre = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cajas_cerradas')
+    
+    fecha_apertura = models.DateTimeField(auto_now_add=True)
+    fecha_cierre = models.DateTimeField(null=True, blank=True)
+    
+    monto_inicial = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Monto de Apertura")
+    monto_final_sistema = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Calculado por Sistema")
+    monto_final_real = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Dinero en Cajón")
+    diferencia = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Positivo sobra, Negativo falta")
+    
+    estado = models.CharField(max_length=10, choices=[('ABIERTA', 'Abierta'), ('CERRADA', 'Cerrada')], default='ABIERTA')
+    observaciones = models.TextField(blank=True, null=True)
 
+    def __str__(self):
+        return f"Caja {self.id} - {self.fecha_apertura.strftime('%d/%m/%Y')} ({self.estado})"
 
+class MovimientoCaja(models.Model):
+    TIPOS = [('INGRESO', 'Ingreso Dinero'), ('EGRESO', 'Salida/Gasto')]
+    
+    caja = models.ForeignKey(CajaDiaria, on_delete=models.CASCADE, related_name='movimientos')
+    tipo = models.CharField(max_length=10, choices=TIPOS)
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    concepto = models.CharField(max_length=200, help_text="Ej: Pago de almuerzo, taxi, compra escoba")
+    fecha = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
-
+    def __str__(self):
+        return f"{self.tipo}: {self.monto} - {self.concepto}"
