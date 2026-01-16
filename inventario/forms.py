@@ -1,7 +1,7 @@
 # inventario/forms.py
 
 from django import forms
-from .models import Producto, Cliente, Proveedor, Compra
+from .models import Producto, Cliente, Proveedor, Compra, CajaDiaria, MovimientoCaja 
 from django.contrib.auth.models import User
 
 # --- FORMULARIO PARA EL REGISTRO DE NUEVAS TIENDAS ---
@@ -106,3 +106,4 @@ class MovimientoCajaForm(forms.ModelForm):
     class Meta:
         model = MovimientoCaja
         fields = ['tipo', 'monto', 'concepto']
+
