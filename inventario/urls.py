@@ -57,7 +57,9 @@ urlpatterns = [
     path('mis-usuarios/eliminar/<int:usuario_id>/', views.eliminar_usuario_tienda, name='eliminar_usuario_tienda'),
     path('gestion/<str:modelo>/eliminar/<int:pk>/', views.gestion_eliminar_view, name='gestion_eliminar'),
     path('pos/crear-cliente-ajax/', views.crear_cliente_ajax_view, name='crear_cliente_ajax'),
+    path('catalogo/', views.catalogo_publico_view, name='catalogo'),
 ]
+
 
 
 
