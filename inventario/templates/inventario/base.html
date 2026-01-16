@@ -8,11 +8,11 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&family=Anton&display=swap" rel="stylesheet">
     
     <style>
         body { 
-            background-color: #e9ecef; /* Fondo gris claro industrial */
+            background-color: #e9ecef;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
@@ -21,8 +21,8 @@
         .wrapper { display: flex; flex: 1; }
         .sidebar {
             width: 270px;
-            background-color: #212529; /* Fondo oscuro sidebar */
-            color: #ffc107; /* Texto amarillo */
+            background-color: #212529;
+            color: #ffc107;
             padding: 20px;
             flex-shrink: 0;
             display: flex; flex-direction: column;
@@ -44,15 +44,15 @@
             text-decoration: none; border-radius: 6px;
             font-weight: 500; font-size: 1.05em;
             transition: all 0.2s;
+            cursor: pointer;
         }
         .nav-button:hover {
-            background-color: #ffc107; /* Amarillo al pasar mouse */
-            color: #212529; /* Texto negro */
+            background-color: #ffc107;
+            color: #212529;
             transform: translateX(5px);
         }
         .main-content { padding: 30px; flex-grow: 1; background-color: #f8f9fa; }
         
-        /* Navbar Superior */
         .navbar-brand { 
             font-family: 'Roboto Condensed', sans-serif; 
             color: #ffc107 !important; 
@@ -65,16 +65,44 @@
             width: 100px; 
             height: 100px;
             border-radius: 50%; 
-            object-fit: contain; /* Cambiado de 'cover' a 'contain' para que el logo no se corte */
-            background-color: white; /* Fondo blanco por si el logo es transparente */
+            object-fit: contain;
+            background-color: white;
             border: 3px solid #ffc107;
             box-shadow: 0 0 15px rgba(255, 193, 7, 0.3);
         }
         .client-store-name { color: #fff; font-weight: bold; margin-top: 10px; font-size: 1.1rem; }
+
+        /* === SPLASH GLOBAL DE REDIRECCIÓN (Estilo Unificado) === */
+        #redirect-splash {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #1d2b38;
+            display: none; /* Oculto por defecto */
+            flex-direction: column; align-items: center; justify-content: center;
+            z-index: 99999; color: white; text-align: center;
+        }
+        .splash-text-redirect { 
+            font-family: 'Anton', sans-serif; font-size: 3rem; margin-bottom: 20px; font-weight: bold; letter-spacing: 1px;
+        }
+        .splash-logo-redirect {
+            width: 150px; height: 150px; border-radius: 15px; margin-bottom: 30px;
+            box-shadow: 0 0 20px rgba(255, 193, 7, 0.5); animation: pulse-redirect 1.5s infinite;
+            object-fit: contain; background: white; padding: 10px;
+        }
+        @keyframes pulse-redirect {
+            0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); }
+        }
     </style>
     {% block extra_styles %}{% endblock %}
 </head>
 <body>
+
+    <!-- SPLASH SCREEN DE REDIRECCIÓN (OCULTO) -->
+    <div id="redirect-splash">
+        <img src="{% static 'inventario/images/logo.jpeg' %}" class="splash-logo-redirect" alt="Logo">
+        <div class="splash-text-redirect" id="redirect-text">PROCESANDO...</div>
+        <div class="spinner-border text-warning" style="width: 3rem; height: 3rem;" role="status"></div>
+    </div>
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top border-bottom border-warning">
         <div class="container-fluid">
@@ -98,7 +126,6 @@
         <aside class="sidebar">
             {% if user.is_authenticated %}
                 <div class="client-logo-container">
-                    {# Usamos la imagen fija que ya tenemos en static #}
                     <img src="{% static 'inventario/images/logo.jpeg' %}" class="client-logo">
                     <p class="client-store-name">{{ user.tienda.nombre }}</p>
                 </div>
@@ -135,8 +162,8 @@
                     <i class="fas fa-chart-line"></i> Reportes
                 </a>
 
-                <!-- BOTÓN NUEVO: IR A LA PÁGINA WEB -->
-                <a href="{% url 'inventario:portal' %}?force=true" class="nav-button" style="color: #0dcaf0;">
+                <!-- BOTÓN IR A LA WEB (Con JS para Splash) -->
+                <a href="#" id="btn-to-web" class="nav-button" style="color: #0dcaf0;">
                     <i class="fas fa-globe"></i> IR A LA PÁGINA WEB
                 </a>
             </div>
@@ -168,8 +195,25 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // SCRIPT PARA MANEJAR EL SPLASH DE IR A LA WEB
+        document.getElementById('btn-to-web').addEventListener('click', function(e) {
+            e.preventDefault(); // Evita navegar inmediatamente
+            
+            const splash = document.getElementById('redirect-splash');
+            const text = document.getElementById('redirect-text');
+            
+            text.innerText = "REDIRIGIENDO A LA PÁGINA WEB";
+            splash.style.display = 'flex';
+            
+            // Navega después de 1.5 segundos
+            setTimeout(() => {
+                window.location.href = "{% url 'inventario:portal' %}?force=true";
+            }, 1500);
+        });
+    </script>
+
     {% block extra_js %}{% endblock %} 
 </body>
-
 </html>
-
