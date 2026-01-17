@@ -179,6 +179,17 @@
                 <a href="{% url 'inventario:cierre_caja' %}" class="nav-button text-danger">
                     <i class="fas fa-door-closed"></i> Cerrar Caja
                 </a>
+
+                <hr class="border-secondary my-3">
+                <div class="small text-muted text-uppercase mb-2 ms-2">Finanzas</div>
+                <a href="{% url 'inventario:lista_deudores' %}" class="nav-button">
+                    <i class="fas fa-hand-holding-usd text-warning"></i> Cuentas por Cobrar
+                </a>
+
+                <div class="small text-muted text-uppercase mb-2 ms-2">Auditoría</div>
+                <a href="{% url 'inventario:kardex_general' %}" class="nav-button">
+                    <i class="fas fa-history text-info"></i> Kardex de Almacén
+                </a>
                 
             </div>
 
@@ -231,4 +242,5 @@
     {% block extra_js %}{% endblock %} 
 </body>
 </html>
+
 
