@@ -1,7 +1,8 @@
 # inventario/forms.py
 
 from django import forms
-from .models import Producto, Cliente, Proveedor, Compra, CajaDiaria, MovimientoCaja 
+# Actualizamos importaciones para incluir PagoCredito
+from .models import Producto, Cliente, Proveedor, Compra, CajaDiaria, MovimientoCaja, PagoCredito 
 from django.contrib.auth.models import User
 
 # --- FORMULARIO PARA EL REGISTRO DE NUEVAS TIENDAS ---
@@ -107,3 +108,16 @@ class MovimientoCajaForm(forms.ModelForm):
         model = MovimientoCaja
         fields = ['tipo', 'monto', 'concepto']
 
+# === NUEVO: FORMULARIO PARA ABONOS DE DEUDAS (CRÉDITOS) ===
+class AbonoForm(forms.ModelForm):
+    class Meta:
+        model = PagoCredito
+        fields = ['monto', 'metodo']
+        widgets = {
+            'monto': forms.NumberInput(attrs={'class': 'form-control form-control-lg', 'placeholder': '0.00', 'step': '0.1'}),
+            'metodo': forms.Select(attrs={'class': 'form-select'}),
+        }
+        labels = {
+            'monto': '¿Cuánto va a pagar el cliente? (S/)',
+            'metodo': 'Medio de Pago'
+        }
