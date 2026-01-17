@@ -32,7 +32,8 @@ class ImportForm(forms.Form):
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
-        fields = ['nombre', 'codigo_barras', 'stock', 'precio', 'costo']
+        # === MEJORA APLICADA: Agregamos 'categoria' y 'unidad_medida' ===
+        fields = ['nombre', 'categoria', 'codigo_barras', 'stock', 'precio', 'costo', 'unidad_medida']
 
 class ClienteForm(forms.ModelForm):
     class Meta:
