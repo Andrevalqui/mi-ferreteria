@@ -65,4 +65,8 @@ urlpatterns = [
     # --- GESTIÓN DE CRÉDITOS Y DEUDORES ---
     path('creditos/', views.lista_deudores_view, name='lista_deudores'),
     path('creditos/pagar/<int:cliente_id>/', views.registrar_abono_view, name='registrar_abono'),
+    # --- AUDITORÍA (KARDEX) ---
+    path('kardex/', views.kardex_general_view, name='kardex_general'),
+    path('kardex/producto/<int:producto_id>/', views.kardex_producto_view, name='kardex_producto'),
 ]
+
