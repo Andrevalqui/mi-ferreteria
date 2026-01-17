@@ -63,10 +63,13 @@ WSGI_APPLICATION = 'mi_erp.wsgi.application'
 
 # Database configuration
 # En local usa SQLite. En Vercel usa la variable DATABASE_URL (Postgres)
+# MEJORA: Agregamos ssl_require=True y conn_health_checks para estabilidad en Vercel
 DATABASES = {
     'default': dj_database_url.config(
         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
-        conn_max_age=600
+        conn_max_age=600,
+        conn_health_checks=True,
+        ssl_require=True,
     )
 }
 
@@ -96,7 +99,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage", # <--- ESTA ES LA CLASE CORRECTA
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage", # <--- ESTA ES LA CLASE CORRECTA
     },
 }
 # Media files (Carga de imágenes - OJO: Vercel no guarda esto permanentemente, usar S3/Cloudinary en el futuro)
@@ -109,13 +112,3 @@ LOGIN_URL = 'inventario:login'
 LOGIN_REDIRECT_URL = 'inventario:dashboard'
 
 LOGOUT_REDIRECT_URL = 'inventario:portal'
-
-
-
-
-
-
-
-
-
-
