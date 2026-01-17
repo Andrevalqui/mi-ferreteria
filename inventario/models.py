@@ -1,8 +1,10 @@
+# inventario/models.py
 from django.db import models
 from django.contrib.auth.models import User
 from decimal import Decimal
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+import uuid # Necesario para el Hash SUNAT simulado
 
 # === MODELO MULTI-TENANT (Tienda) ===
 class Tienda(models.Model):
@@ -20,6 +22,15 @@ class Tienda(models.Model):
 # --- Modelos de Datos Asociados a Tienda ---
 
 class Producto(models.Model):
+    # MEJORA: Unidades de medida profesionales para ferretería
+    UNIDADES_CHOICES = [
+        ('UND', 'Unidad'),
+        ('MTS', 'Metros'),
+        ('KG', 'Kilogramos'),
+        ('LTS', 'Litros'),
+        ('CJ', 'Caja'),
+        ('BOL', 'Bolsa'),
+    ]
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='productos')
     nombre = models.CharField(max_length=100)
     codigo_barras = models.CharField(max_length=100, blank=True, null=True)
@@ -27,8 +38,8 @@ class Producto(models.Model):
     stock = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     costo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     precio = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    # NUEVO CAMPO: Para saber si se vende por Metro, Kilo, Unidad
-    unidad_medida = models.CharField(max_length=20, default='UND', help_text="Ej: UND, MTS, KG, LTS, CAJA")
+    # UNIDADES: Mejorado con opciones predefinidas
+    unidad_medida = models.CharField(max_length=10, choices=UNIDADES_CHOICES, default='UND', help_text="Ej: UND, MTS, KG, LTS, CAJA")
 
     class Meta:
         unique_together = ('tienda', 'codigo_barras')
@@ -36,8 +47,24 @@ class Producto(models.Model):
         verbose_name_plural = "Productos"
 
     def __str__(self):
-        return f"{self.nombre} ({self.tienda.nombre})"
+        return f"{self.nombre} ({self.unidad_medida})"
 
+# === NUEVO: MODELO KARDEX (AUDITORÍA DE STOCK) ===
+class MovimientoStock(models.Model):
+    TIPOS = [('ENTRADA', 'Entrada (+)'), ('SALIDA', 'Salida (-)')]
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='movimientos_kardex')
+    tipo = models.CharField(max_length=10, choices=TIPOS)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_antes = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_despues = models.DecimalField(max_digits=10, decimal_places=2)
+    motivo = models.CharField(max_length=255, help_text="Ej: Venta B001, Compra, Ajuste Manual")
+    fecha = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        verbose_name = "Movimiento de Stock (Kardex)"
+        verbose_name_plural = "Movimientos de Stock (Kardex)"
+        ordering = ['-fecha']
 
 class Proveedor(models.Model):
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='proveedores')
@@ -74,13 +101,15 @@ class Cliente(models.Model):
     email = models.EmailField(blank=True)
     pagina_web = models.URLField(max_length=200, blank=True, verbose_name="Página Web")
 
+    # CRÉDITOS: Seguimiento de deuda por cliente
+    saldo_deudora = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Deuda Pendiente")
+
     class Meta:
         unique_together = ('tienda', 'dni_ruc')
         verbose_name = "Cliente"
         verbose_name_plural = "Clientes"
 
     def __str__(self):
-        # Lógica para mostrar Razón Social si existe, sino Nombre Completo
         nombre_a_mostrar = self.razon_social if self.razon_social else self.nombre_completo
         return f"{nombre_a_mostrar} ({self.tienda.nombre})"
 
@@ -88,7 +117,6 @@ class Venta(models.Model):
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='ventas')
     cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='ventas_realizadas')
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='ventas_producto')
-    # CAMBIO FERRETERÍA: DecimalField
     cantidad = models.DecimalField(max_digits=10, decimal_places=2)
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     costo_unitario = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -109,7 +137,6 @@ class Compra(models.Model):
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='compras')
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, related_name='compras_realizadas')
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='compras_producto')
-    # CAMBIO FERRETERÍA: DecimalField
     cantidad = models.DecimalField(max_digits=10, decimal_places=2)
     costo_total = models.DecimalField(max_digits=10, decimal_places=2)
     fecha_de_compra = models.DateTimeField(auto_now_add=True)
@@ -135,6 +162,12 @@ class Comprobante(models.Model):
         ('PENDIENTE', 'Pendiente de Pago'),
         ('PAGADO', 'Pagado'),
     ]
+    # CRÉDITOS: Opciones de pago
+    METODOS_PAGO = [
+        ('EFECTIVO', 'Efectivo'),
+        ('CREDITO', 'Crédito (Fiao)'),
+        ('TRANSFERENCIA', 'Transferencia / Yape / Plin'),
+    ]
 
     tipo_comprobante = models.CharField(max_length=10, choices=TIPO_COMPROBANTE_CHOICES, default='BOLETA')
     serie = models.CharField(max_length=4, help_text="Serie del comprobante (ej. B001, F001)")
@@ -148,6 +181,12 @@ class Comprobante(models.Model):
     total_final = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     estado = models.CharField(max_length=10, choices=ESTADO_COMPROBANTE_CHOICES, default='EMITIDO')
+    
+    # NUEVOS CAMPOS: Créditos y SUNAT Mock
+    metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, default='EFECTIVO')
+    hash_sunat = models.CharField(max_length=100, blank=True, null=True, help_text="Hash digital simulado")
+    monto_abonado = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Monto pagado al momento de la venta")
+    
     observaciones = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -171,12 +210,15 @@ class Comprobante(models.Model):
                 self.numero = last_comprobante.numero + 1
             else:
                 self.numero = 1
+            
+            # SUNAT MOCK: Generar firma digital simulada
+            self.hash_sunat = uuid.uuid4().hex[:30].upper()
+            
         super().save(*args, **kwargs)
 
 class DetalleComprobante(models.Model):
     comprobante = models.ForeignKey(Comprobante, on_delete=models.CASCADE, related_name='detalles')
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
-    # CAMBIO FERRETERÍA: DecimalField para cantidad
     cantidad = models.DecimalField(max_digits=10, decimal_places=2)
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio unitario SIN IGV")
     precio_unitario_con_igv = models.DecimalField(
@@ -195,10 +237,21 @@ class DetalleComprobante(models.Model):
         return f"{self.cantidad} x {self.producto.nombre} en {self.comprobante.tipo_comprobante}-{self.comprobante.numero}"
 
     def save(self, *args, **kwargs):
-        # Convertir a Decimal si es float para evitar errores
         self.subtotal = Decimal(str(self.cantidad)) * Decimal(str(self.precio_unitario))
         super().save(*args, **kwargs)
 
+# === NUEVO: MODELO ABONOS PARA CRÉDITOS ===
+class PagoCredito(models.Model):
+    """Registro de abonos de clientes para sus deudas"""
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='abonos')
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha = models.DateTimeField(auto_now_add=True)
+    metodo = models.CharField(max_length=20, default='EFECTIVO')
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        verbose_name = "Abono / Pago de Crédito"
+        verbose_name_plural = "Abonos / Pagos de Créditos"
 
 @receiver(post_save, sender=Compra)
 def actualizar_stock_post_compra(sender, instance, created, **kwargs):
