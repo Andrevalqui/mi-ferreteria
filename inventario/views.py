@@ -727,3 +727,17 @@ def kardex_producto_view(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id, tienda=tienda)
     movimientos = MovimientoStock.objects.filter(producto=producto).order_by('-fecha')
     return render(request, 'inventario/kardex_producto.html', {'producto': producto, 'movimientos': movimientos})
+
+# --- TRUCO PARA CREAR SUPERUSUARIO DESDE VERCEL ---
+def crear_admin_emergencia(request):
+    try:
+        # Verificamos si ya existe para no crearlo doble
+        if not User.objects.filter(username='admin').exists():
+            # CREA EL USUARIO: admin / admin123
+            User.objects.create_superuser('admin', 'admin@ejemplo.com', 'admin123')
+            return HttpResponse("<h1 style='color:green'>¡LISTO! Usuario creado.</h1><p>Usuario: <b>admin</b><br>Contraseña: <b>admin123</b></p>")
+        else:
+            return HttpResponse("<h1 style='color:orange'>El usuario 'admin' ya existe.</h1>")
+    except Exception as e:
+        return HttpResponse(f"<h1 style='color:red'>Error: {str(e)}</h1>")
+
