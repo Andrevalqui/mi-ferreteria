@@ -62,13 +62,7 @@ urlpatterns = [
     path('caja/apertura/', views.apertura_caja_view, name='apertura_caja'),
     path('caja/cierre/', views.cierre_caja_view, name='cierre_caja'),
     path('caja/movimiento/', views.movimiento_caja_view, name='movimiento_caja'),
+    # --- GESTIÓN DE CRÉDITOS Y DEUDORES ---
+    path('creditos/', views.lista_deudores_view, name='lista_deudores'),
+    path('creditos/pagar/<int:cliente_id>/', views.registrar_abono_view, name='registrar_abono'),
 ]
-
-
-
-
-
-
-
-
-
