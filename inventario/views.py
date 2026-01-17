@@ -25,7 +25,8 @@ from tablib import Dataset
 # Importaciones locales de tu App (Consolidadas aquí arriba)
 from .models import (
     Producto, Venta, Proveedor, Compra, Cliente, Comprobante, 
-    DetalleComprobante, Tienda, LoginLog, Perfil, CajaDiaria, MovimientoCaja
+    DetalleComprobante, Tienda, LoginLog, Perfil, CajaDiaria, MovimientoCaja,
+    MovimientoStock, PagoCredito # Aseguramos importar estos también
 )
 from .forms import (
     RegistroTiendaForm, ProductoForm, ClienteForm, ProveedorForm, 
@@ -75,51 +76,70 @@ def obtener_tienda_usuario(user):
 
 
 # ==============================================================================
-# VISTAS DE VENTA Y POS
+# VISTAS DE VENTA Y POS (CORREGIDA PARA EVITAR ERROR 500)
 # ==============================================================================
 
 @login_required
 def pos_view(request):
-    tienda_actual = obtener_tienda_usuario(request.user)
-    if not tienda_actual:
-        messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
-        return redirect('inventario:portal')
+    try:
+        # 1. Obtener tienda y validar
+        tienda_actual = obtener_tienda_usuario(request.user)
+        if not tienda_actual:
+            messages.error(request, "No tienes una tienda asignada. Contacta al administrador.")
+            return redirect('inventario:portal')
 
-    caja_abierta = CajaDiaria.objects.filter(tienda=tienda_actual, estado='ABIERTA').first()
-    
-    if not caja_abierta:
-        messages.warning(request, "⚠️ DEBES ABRIR CAJA PARA PODER VENDER.")
-        return redirect('inventario:apertura_caja')
+        # 2. Verificar si hay caja abierta de forma segura
+        # Usamos filter().first() para evitar errores si no existe ninguna caja aún
+        caja_abierta = CajaDiaria.objects.filter(tienda=tienda_actual, estado='ABIERTA').first()
+        
+        if not caja_abierta:
+            messages.warning(request, "⚠️ CAJA CERRADA: Debes abrir caja para poder vender.")
+            return redirect('inventario:apertura_caja')
 
-    productos = Producto.objects.filter(tienda=tienda_actual)
-    clientes = Cliente.objects.filter(tienda=tienda_actual)
-    
-    productos_para_busqueda = []
-    for p in productos:
-        productos_para_busqueda.append({
-            'id': p.id,
-            'text': f'{p.nombre} (Stock: {p.stock})',
-            'codigo_barras': p.codigo_barras,
-            'precio': str(p.precio) 
-        })
+        # 3. Cargar datos
+        productos = Producto.objects.filter(tienda=tienda_actual)
+        clientes = Cliente.objects.filter(tienda=tienda_actual)
+        
+        # 4. Preparar JSON para el Select2 (Buscador) con conversión segura de tipos
+        productos_para_busqueda = []
+        for p in productos:
+            # Convertimos Decimal a float/str para que JSON no falle
+            stock_val = float(p.stock) if p.stock is not None else 0.0
+            precio_val = str(p.precio) if p.precio is not None else "0.00"
+            codigo_val = p.codigo_barras if p.codigo_barras else ""
 
-    ultimas_ventas_detalles = DetalleComprobante.objects.filter(
-        comprobante__tienda=tienda_actual
-    ).select_related(
-        'comprobante__cliente', 'producto'
-    ).order_by('-comprobante__fecha_emision')[:5]
+            productos_para_busqueda.append({
+                'id': p.id,
+                'text': f'{p.nombre} (Stock: {stock_val:.2f})',
+                'codigo_barras': codigo_val,
+                'precio': precio_val 
+            })
 
-    for detalle in ultimas_ventas_detalles:
-        precio_a_usar = detalle.precio_unitario_con_igv or (detalle.precio_unitario * Decimal('1.18'))
-        detalle.total_item = precio_a_usar * detalle.cantidad
+        # 5. Obtener últimas ventas optimizando consultas
+        ultimas_ventas_detalles = DetalleComprobante.objects.filter(
+            comprobante__tienda=tienda_actual
+        ).select_related(
+            'comprobante__cliente', 'producto'
+        ).order_by('-comprobante__fecha_emision')[:5]
 
-    contexto = {
-        'productos_json': json.dumps(productos_para_busqueda),
-        'clientes': clientes,
-        'ultimas_ventas': ultimas_ventas_detalles,
-        'tienda_actual': tienda_actual,
-    }
-    return render(request, 'inventario/pos.html', contexto)
+        # Calcular totales para la vista rápida
+        for detalle in ultimas_ventas_detalles:
+            # Fallback si precio_unitario_con_igv es None
+            precio_con_igv = detalle.precio_unitario_con_igv if detalle.precio_unitario_con_igv else (detalle.precio_unitario * Decimal('1.18'))
+            detalle.total_item = precio_con_igv * detalle.cantidad
+
+        contexto = {
+            'productos_json': json.dumps(productos_para_busqueda),
+            'clientes': clientes,
+            'ultimas_ventas': ultimas_ventas_detalles,
+            'tienda_actual': tienda_actual,
+        }
+        return render(request, 'inventario/pos.html', contexto)
+
+    except Exception as e:
+        # En caso de error crítico (ej. base de datos desconectada), mostramos el error en vez de pantalla blanca
+        print(f"ERROR CRÍTICO EN POS: {str(e)}")
+        return HttpResponse(f"<div style='padding:20px; color:red;'><h1>Error del Sistema</h1><p>Ocurrió un error inesperado al cargar el POS:</p><pre>{str(e)}</pre></div>", status=500)
 
 
 @login_required
@@ -135,8 +155,8 @@ def emitir_comprobante_y_preparar_impresion_view(request):
             observaciones_venta = request.POST.get('observaciones', '')
             tipo_comprobante = request.POST.get('tipo_comprobante')
             producto_id = request.POST.get('producto_id')
-            cantidad_vendida = Decimal(request.POST.get('cantidad', 1)) # Decimal para unidades como MTS
-            metodo_pago = request.POST.get('metodo_pago', 'EFECTIVO') # Nueva lógica crédito
+            cantidad_vendida = Decimal(request.POST.get('cantidad', 1)) 
+            metodo_pago = request.POST.get('metodo_pago', 'EFECTIVO')
 
             producto = get_object_or_404(Producto, id=producto_id, tienda=tienda_actual)
             cliente_seleccionado = Cliente.objects.filter(id=cliente_id, tienda=tienda_actual).first() if cliente_id else None
@@ -165,7 +185,6 @@ def emitir_comprobante_y_preparar_impresion_view(request):
                     observaciones=observaciones_venta,
                 )
 
-                # LÓGICA DE CRÉDITO (Fiao)
                 if metodo_pago == 'CREDITO' and cliente_seleccionado:
                     cliente_seleccionado.saldo_deudora += total_final_venta
                     cliente_seleccionado.save()
@@ -230,17 +249,33 @@ def portal_view(request):
     return render(request, 'inventario/portal.html')
 
 def catalogo_view(request):
+    """
+    Vista corregida para usar el nuevo campo 'categoria' del modelo Producto
+    y mejorar el filtrado.
+    """
     query = request.GET.get('q', '')
-    categoria = request.GET.get('categoria', '')
+    categoria_filtro = request.GET.get('categoria', '').upper() # Normalizamos a mayúsculas
+    
     productos = Producto.objects.all().order_by('nombre')
+    
+    # Filtro por búsqueda de texto (Nombre o Código)
     if query:
         productos = productos.filter(Q(nombre__icontains=query) | Q(codigo_barras__icontains=query))
-    if categoria:
-        if categoria == 'materiales': productos = productos.filter(codigo_barras__istartswith='MAT')
-        elif categoria == 'herramienta': productos = productos.filter(codigo_barras__istartswith='HER')
-        elif categoria == 'pintura': productos = productos.filter(codigo_barras__istartswith='PIN')
-        elif categoria == 'seguridad': productos = productos.filter(codigo_barras__istartswith='SEG')
-    context = {'productos': productos, 'busqueda': query, 'categoria_filtro': categoria}
+    
+    # Filtro por Categoría (Usando el campo del modelo)
+    if categoria_filtro:
+        # Mapeo de URL params a las opciones del modelo
+        if categoria_filtro == 'MATERIALES':
+            productos = productos.filter(categoria='MATERIALES')
+        elif categoria_filtro in ['HERRAMIENTA', 'HERRAMIENTAS']:
+            productos = productos.filter(categoria='HERRAMIENTAS')
+        elif categoria_filtro in ['PINTURA', 'PINTURAS']:
+            productos = productos.filter(categoria='PINTURAS')
+        elif categoria_filtro == 'SEGURIDAD':
+            productos = productos.filter(categoria='SEGURIDAD')
+        # Si la categoría no coincide, no filtra extra (muestra todo o solo búsqueda)
+
+    context = {'productos': productos, 'busqueda': query, 'categoria_filtro': categoria_filtro}
     return render(request, 'inventario/catalogo.html', context)
 
 
@@ -692,5 +727,3 @@ def kardex_producto_view(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id, tienda=tienda)
     movimientos = MovimientoStock.objects.filter(producto=producto).order_by('-fecha')
     return render(request, 'inventario/kardex_producto.html', {'producto': producto, 'movimientos': movimientos})
-
-
