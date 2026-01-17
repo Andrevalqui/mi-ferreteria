@@ -1,14 +1,16 @@
 {% extends 'inventario/base.html' %}
 {% load static %}
 
-{% block title %}Punto de Venta Ferretero{% endblock %}
+{% block title %}Punto de Venta Ferretero PRO{% endblock %}
 
 {% block extra_styles %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <style>
     .pos-container { max-width: 100%; }
-    .pos-header { background-color: #343a40; color: #ffc107; padding: 15px; border-radius: 8px 8px 0 0; }
+    .pos-header { background-color: #212529; color: #ffc107; padding: 15px; border-radius: 8px 8px 0 0; }
     .total-big { font-size: 3.5rem; font-weight: 800; color: #198754; text-align: center; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+    /* Resaltado para el selector de pago */
+    .payment-method-box { background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; }
 </style>
 {% endblock %}
 
@@ -29,13 +31,13 @@
                 </div>
                 <div class="row g-2 align-items-end">
                     <div class="col-md-8">
-                        <label class="fw-bold text-muted small">BUSCAR HERRAMIENTA / PRODUCTO</label>
+                        <label class="fw-bold text-muted small text-uppercase">Material / Herramienta / Cable</label>
                         <select id="producto" class="form-select form-select-lg"></select>
                     </div>
                     <div class="col-md-2">
-                        <label class="fw-bold text-muted small">CANTIDAD</label>
-                        <!-- IMPORTANTE: step="any" permite decimales (metros, kilos) -->
-                        <input type="number" id="cantidad" class="form-control form-control-lg text-center fw-bold" value="1" min="0.1" step="any">
+                        <label class="fw-bold text-muted small text-uppercase">Cantidad</label>
+                        <!-- step="any" es vital para ferreterías (ej: 2.50 metros de cable) -->
+                        <input type="number" id="cantidad" class="form-control form-control-lg text-center fw-bold" value="1" min="0.01" step="any">
                     </div>
                     <div class="col-md-2 d-grid">
                         <button id="btn-add-to-cart" class="btn btn-primary btn-lg"><i class="fas fa-plus"></i></button>
@@ -55,6 +57,7 @@
                     <thead class="table-secondary">
                         <tr>
                             <th>Descripción</th>
+                            <th class="text-center" width="10%">Unid.</th>
                             <th class="text-center" width="15%">Cant.</th>
                             <th class="text-end" width="15%">P. Unit</th>
                             <th class="text-end" width="15%">Subtotal</th>
@@ -67,7 +70,7 @@
         </div>
     </div>
 
-    <!-- COLUMNA DERECHA: TOTALES Y CLIENTE -->
+    <!-- COLUMNA DERECHA: TOTALES, CLIENTE Y PAGO -->
     <div class="col-lg-4">
         <!-- TARJETA TOTAL -->
         <div class="card shadow border-0 mb-4">
@@ -82,32 +85,44 @@
             </div>
         </div>
 
-        <!-- FORMULARIO CLIENTE -->
+        <!-- FORMULARIO CLIENTE Y FORMA DE PAGO -->
         <div class="card shadow-sm border-0">
             <div class="card-body p-4">
-                <h5 class="card-title fw-bold mb-3"><i class="fas fa-user"></i> Datos del Cliente</h5>
+                <h5 class="card-title fw-bold mb-3 border-bottom pb-2"><i class="fas fa-user-check"></i> Finalizar Venta</h5>
                 
                 <div class="mb-3">
                     <label class="form-label text-muted small fw-bold">CLIENTE</label>
-                    <div class="input-group">
+                    <div class="input-group shadow-sm">
                         <select id="cliente" class="form-select"></select>
-                        <!-- BOTÓN PLUS AGREGADO -->
                         <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalNuevoCliente">
                             <i class="fas fa-user-plus"></i>
                         </button>
                     </div>
                 </div>
+
+                <!-- NUEVO: SELECTOR DE FORMA DE PAGO -->
+                <div class="payment-method-box mb-3">
+                    <label class="form-label fw-bold text-dark small text-uppercase">Forma de Pago</label>
+                    <select id="metodo_pago" class="form-select form-select-lg border-warning fw-bold">
+                        <option value="EFECTIVO">💵 EFECTIVO</option>
+                        <option value="TRANSFERENCIA">📱 TRANSFERENCIA / PLIN</option>
+                        <option value="CREDITO">💳 CRÉDITO (FÍAO / DEUDA)</option>
+                    </select>
+                    <div id="msg-credito" class="text-danger small mt-2 fw-bold" style="display:none;">
+                        * Se cargará al saldo deudor del cliente.
+                    </div>
+                </div>
                 
                 <div class="mb-3">
-                    <label class="form-label text-muted small">Observaciones</label>
-                    <textarea id="observaciones" class="form-control" rows="2" placeholder="Opcional..."></textarea>
+                    <label class="form-label text-muted small fw-bold">OBSERVACIONES / NOTA</label>
+                    <textarea id="observaciones" class="form-control" rows="2" placeholder="Ej: Maestro Juan, entrega lunes..."></textarea>
                 </div>
 
                 <div class="d-grid gap-3 mt-4">
-                    <button class="btn btn-success btn-lg fw-bold py-3" onclick="emitir('BOLETA')">
+                    <button class="btn btn-success btn-lg fw-bold py-3 shadow" onclick="emitir('BOLETA')">
                         <i class="fas fa-receipt me-2"></i> EMITIR BOLETA
                     </button>
-                    <button class="btn btn-primary btn-lg fw-bold py-3" onclick="emitir('FACTURA')">
+                    <button class="btn btn-primary btn-lg fw-bold py-3 shadow" onclick="emitir('FACTURA')">
                         <i class="fas fa-file-invoice-dollar me-2"></i> EMITIR FACTURA
                     </button>
                 </div>
@@ -127,7 +142,6 @@
             <div class="modal-body">
                 <form id="form-nuevo-cliente">
                     <div class="row">
-                        <!-- SECCIÓN PERSONA -->
                         <div class="col-md-6 border-end">
                             <h6 class="fw-bold text-primary border-bottom pb-2">Persona (Boleta)</h6>
                             <div class="mb-2">
@@ -139,7 +153,6 @@
                                 <input type="text" id="reg_dni" class="form-control form-control-sm" maxlength="8">
                             </div>
                         </div>
-                        <!-- SECCIÓN EMPRESA -->
                         <div class="col-md-6">
                             <h6 class="fw-bold text-success border-bottom pb-2">Empresa (Factura)</h6>
                             <div class="mb-2">
@@ -149,14 +162,6 @@
                             <div class="mb-2">
                                 <label class="small fw-bold">RUC</label>
                                 <input type="text" id="reg_ruc" class="form-control form-control-sm" maxlength="11">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-3 pt-2 border-top">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label class="small fw-bold">Teléfono de Contacto</label>
-                                <input type="text" id="reg_tel" class="form-control form-control-sm">
                             </div>
                         </div>
                     </div>
@@ -181,7 +186,6 @@
     let shoppingCart = [];
     const productosData = {{ productos_json|safe }};
     
-    // --- NUEVA LÓGICA: clientesData ahora incluye RUC y RAZON para validación ---
     const clientesData = [ 
         { id: '', text: 'Cliente General (Público)', ruc: '', razon: '' }, 
         {% for cliente in clientes %} 
@@ -195,46 +199,35 @@
     ];
 
     $(document).ready(function() {
-        // Inicializar Select2
-        $('#producto').select2({ data: productosData, placeholder: "Buscar material o herramienta...", width: '100%' });
-        
-        // Inicializar Clientes con la nueva data
+        $('#producto').select2({ data: productosData, placeholder: "Buscar material...", width: '100%' });
         $('#cliente').select2({ data: clientesData, width: '100%' });
 
-        // Evento Agregar Click
+        $('#metodo_pago').change(function() {
+            if($(this).val() === 'CREDITO') $('#msg-credito').fadeIn();
+            else $('#msg-credito').fadeOut();
+        });
+
         $('#btn-add-to-cart').click(agregarAlCarrito);
 
-        // Evento Escáner Código de Barras
         $('#barcode_input').on('keypress', function(e) {
-            if (e.which == 13) { // Enter presionado
+            if (e.which == 13) {
                 const code = $(this).val().trim();
-                if(code) {
-                    const prod = productosData.find(p => p.codigo_barras === code);
-                    if(prod) {
-                        $('#producto').val(prod.id).trigger('change');
-                        $('#cantidad').val(1);
-                        agregarAlCarrito();
-                        $(this).val(''); // Limpiar
-                    } else {
-                        alert('Producto no encontrado con código: ' + code);
-                        $(this).val('');
-                    }
+                const prod = productosData.find(p => p.codigo_barras === code);
+                if(prod) {
+                    $('#producto').val(prod.id).trigger('change');
+                    agregarAlCarrito();
+                    $(this).val('');
                 }
             }
         });
 
-        // LÓGICA PARA GUARDAR CLIENTE RÁPIDO (CON SOPORTE EMPRESA)
         $('#btn-guardar-cliente-rapido').click(function() {
             const data = {
                 nombre: $('#reg_nombre').val(),
                 dni: $('#reg_dni').val(),
                 razon: $('#reg_razon').val(),
-                ruc: $('#reg_ruc').val(),
-                tel: $('#reg_tel').val()
+                ruc: $('#reg_ruc').val()
             };
-
-            if (!data.nombre && !data.razon) return alert("Por favor ingresa un Nombre o Razón Social.");
-
             $.ajax({
                 url: "{% url 'inventario:crear_cliente_ajax' %}",
                 method: "POST",
@@ -242,28 +235,9 @@
                 data: JSON.stringify(data),
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' },
                 success: function(response) {
-                    // 1. Actualizar nuestra lista local de validación
-                    clientesData.push({ 
-                        id: response.id, 
-                        text: response.text, 
-                        ruc: response.ruc, 
-                        razon: response.razon 
-                    });
-
-                    // 2. Añadir al selector Select2 y seleccionar
-                    const newOption = new Option(response.text, response.id, true, true);
-                    $('#cliente').append(newOption).trigger('change');
-                    
-                    // 3. Limpiar formulario y cerrar modal
-                    $('#form-nuevo-cliente')[0].reset();
-                    const modalElement = document.getElementById('modalNuevoCliente');
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    modal.hide();
-
-                    alert("¡Cliente registrado y seleccionado!");
-                },
-                error: function(xhr) {
-                    alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : "No se pudo registrar"));
+                    clientesData.push({ id: response.id, text: response.text, ruc: response.ruc, razon: response.razon });
+                    $('#cliente').append(new Option(response.text, response.id, true, true)).trigger('change');
+                    bootstrap.Modal.getInstance(document.getElementById('modalNuevoCliente')).hide();
                 }
             });
         });
@@ -272,13 +246,13 @@
     function agregarAlCarrito() {
         const prodId = $('#producto').val();
         const qty = parseFloat($('#cantidad').val());
-
-        if(!prodId) return alert("Seleccione un producto");
-        if(isNaN(qty) || qty <= 0) return alert("Cantidad inválida");
+        if(!prodId || isNaN(qty) || qty <= 0) return alert("Seleccione producto y cantidad válida");
 
         const prodInfo = productosData.find(p => p.id == prodId);
-        const existingIdx = shoppingCart.findIndex(i => i.id == prodId);
+        // Extraemos la unidad de medida si existe en el texto (ej: "Cable (Stock: 10) [MTS]")
+        const unit = prodInfo.text.includes('[') ? prodInfo.text.split('[')[1].replace(']', '') : 'UND';
 
+        const existingIdx = shoppingCart.findIndex(i => i.id == prodId);
         if(existingIdx > -1) {
             shoppingCart[existingIdx].quantity += qty;
         } else {
@@ -286,48 +260,36 @@
                 id: prodInfo.id,
                 name: prodInfo.text.split(' (Stock:')[0],
                 quantity: qty,
-                price: parseFloat(prodInfo.precio)
+                price: parseFloat(prodInfo.price || prodInfo.precio),
+                unit: unit
             });
         }
-        
         renderizarCarrito();
-        $('#producto').val(null).trigger('change');
         $('#cantidad').val(1);
-        $('#producto').select2('open');
     }
 
     function renderizarCarrito() {
         const tbody = $('#cart-items');
         tbody.empty();
         let total = 0;
-        let count = 0;
-
         shoppingCart.forEach((item, index) => {
             const subtotal = item.quantity * item.price;
             total += subtotal;
-            count++;
-
-            const row = `
+            tbody.append(`
                 <tr>
                     <td>${item.name}</td>
+                    <td class="text-center text-muted small">${item.unit}</td>
                     <td class="text-center fw-bold">${item.quantity}</td>
                     <td class="text-end">S/ ${item.price.toFixed(2)}</td>
                     <td class="text-end fw-bold">S/ ${subtotal.toFixed(2)}</td>
-                    <td class="text-center">
-                        <button class="btn btn-outline-danger btn-sm" onclick="eliminarItem(${index})"><i class="fas fa-trash"></i></button>
-                    </td>
+                    <td class="text-center"><button class="btn btn-sm btn-outline-danger" onclick="eliminarItem(${index})"><i class="fas fa-trash"></i></button></td>
                 </tr>
-            `;
-            tbody.append(row);
+            `);
         });
-
-        const subtotal = total / 1.18;
-        const igv = total - subtotal;
-
         $('#grand-total-display').text('S/ ' + total.toFixed(2));
-        $('#subtotal-display').text('S/ ' + subtotal.toFixed(2));
-        $('#igv-display').text('S/ ' + igv.toFixed(2));
-        $('#items-count').text(count + ' Ítems');
+        $('#subtotal-display').text('S/ ' + (total / 1.18).toFixed(2));
+        $('#igv-display').text('S/ ' + (total - (total/1.18)).toFixed(2));
+        $('#items-count').text(shoppingCart.length + ' Ítems');
     }
 
     window.eliminarItem = function(index) {
@@ -336,26 +298,23 @@
     }
 
     window.emitir = function(tipo) {
-        if(shoppingCart.length === 0) return alert("El carrito está vacío.");
-
+        if(shoppingCart.length === 0) return alert("Carrito vacío");
         const clienteId = $('#cliente').val();
-        
-        // --- NUEVA VALIDACIÓN INTELIGENTE PARA FACTURAS ---
         const selectedClient = clientesData.find(c => c.id == clienteId);
+        const metodo = $('#metodo_pago').val();
 
-        if (tipo === 'FACTURA') {
-            // Verificamos si existe el cliente y si tiene RUC + RAZON SOCIAL
-            if (!selectedClient || !selectedClient.ruc || !selectedClient.razon) {
-                alert("⚠️ RESTRICCIÓN DE FACTURACIÓN:\n\nEl cliente seleccionado no tiene RUC ni RAZÓN SOCIAL registrados.\n\nPara emitir una FACTURA, es obligatorio seleccionar una Empresa registrada. Si es una persona con DNI, emita una BOLETA.");
-                return; // Bloquea la emisión
-            }
+        if (tipo === 'FACTURA' && (!selectedClient || !selectedClient.ruc)) {
+            return alert("Para Factura el cliente debe tener RUC.");
         }
-        // --------------------------------------------------
+        if (metodo === 'CREDITO' && !clienteId) {
+            return alert("Debe seleccionar un cliente para ventas al crédito.");
+        }
 
         const payload = {
             cliente_id: clienteId,
             observaciones: $('#observaciones').val(),
             tipo_comprobante: tipo,
+            metodo_pago: metodo, // <--- ESTO ARREGLARÁ EL ERROR 500
             cart: shoppingCart
         };
 
@@ -366,30 +325,11 @@
             data: JSON.stringify(payload),
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }, 
             success: function(response) {
-                if (response.comprobante_id) {
-                    if (response.stocks_actualizados) {
-                        response.stocks_actualizados.forEach(update => {
-                            const productIdx = productosData.findIndex(p => p.id == update.id);
-                            if(productIdx > -1) {
-                                productosData[productIdx].stock = update.stock;
-                                const baseName = productosData[productIdx].text.split(' (Stock:')[0];
-                                productosData[productIdx].text = `${baseName} (Stock: ${update.stock})`;
-                            }
-                        });
-                    }
-
-                    $('#producto').empty().select2({ data: productosData, placeholder: "Buscar material o herramienta..." });
-                    window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
-                    
-                    $('#mensaje-ajax').text('Venta Exitosa!').fadeIn().delay(2000).fadeOut();
-                    shoppingCart = [];
-                    renderizarCarrito();
-                    $('#cliente').val(null).trigger('change');
-                    $('#observaciones').val('');
-                }
+                window.open("/comprobante/" + response.comprobante_id + "/ticket/", '_blank');
+                location.reload(); // Recargamos para actualizar stocks
             },
             error: function(xhr) {
-                alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : "Desconocido"));
+                alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : "Error en servidor"));
             }
         });
     }
