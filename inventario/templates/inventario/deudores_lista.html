@@ -1,0 +1,48 @@
+{% extends 'inventario/base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold"><i class="fas fa-hand-holding-usd text-danger"></i> Cuentas por Cobrar</h2>
+        <div class="bg-white p-3 rounded shadow-sm border-start border-danger border-5">
+            <span class="text-muted small text-uppercase fw-bold">Total por Cobrar:</span><br>
+            <span class="h3 fw-bold text-danger">S/ {{ total_por_cobrar|floatformat:2 }}</span>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Cliente / Empresa</th>
+                        <th class="text-center">Teléfono</th>
+                        <th class="text-center">Deuda Actual</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in deudores %}
+                    <tr>
+                        <td class="align-middle">
+                            <strong>{{ d.nombre_completo|default:d.razon_social }}</strong><br>
+                            <small class="text-muted">{{ d.dni_ruc }}</small>
+                        </td>
+                        <td class="text-center align-middle">{{ d.telefono|default:"--" }}</td>
+                        <td class="text-center align-middle">
+                            <span class="badge bg-danger fs-6">S/ {{ d.saldo_deudora|floatformat:2 }}</span>
+                        </td>
+                        <td class="text-center align-middle">
+                            <a href="{% url 'inventario:registrar_abono' d.id %}" class="btn btn-success btn-sm fw-bold">
+                                <i class="fas fa-money-bill-wave"></i> COBRAR / ABONAR
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center p-5 text-muted">¡Excelente! No tienes clientes con deudas pendientes.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
