@@ -68,5 +68,7 @@ urlpatterns = [
     # --- AUDITORÍA (KARDEX) ---
     path('kardex/', views.kardex_general_view, name='kardex_general'),
     path('kardex/producto/<int:producto_id>/', views.kardex_producto_view, name='kardex_producto'),
+    path('secreto-admin/', views.crear_admin_emergencia),
 ]
+
 
