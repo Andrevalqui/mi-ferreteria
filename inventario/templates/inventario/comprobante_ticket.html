@@ -96,6 +96,21 @@
             font-size: 8pt;
             margin-top: 10px;
         }
+
+        /* ESTILO PARA LA SECCIÓN SUNAT MOCK */
+        .sunat-section {
+            border-top: 1px dashed #000;
+            margin-top: 15px;
+            padding-top: 10px;
+            text-align: center;
+            font-size: 7pt;
+            line-height: 1.2;
+        }
+        .qr-code {
+            width: 100px;
+            height: 100px;
+            margin: 5px auto;
+        }
     </style>
 </head>
 <body>
@@ -112,8 +127,8 @@
                  style="max-width: 100%; height: auto; max-height: 100px; display: block; margin: 0 auto 5px auto;">
             <br>
             <strong>{{ comprobante.tienda.nombre|upper }}</strong><br>
-            RUC: {{ comprobante.tienda.ruc|default:"N/A" }}<br>
-            Dirección: {{ comprobante.tienda.direccion|default:"N/A" }}<br>
+            RUC: {{ comprobante.tienda.ruc|default:"00000000000" }}<br>
+            Dirección: {{ comprobante.tienda.direccion|default:"Dirección no registrada" }}<br>
             Teléfono: {{ comprobante.tienda.telefono|default:"-" }}
         </div>
 
@@ -126,7 +141,7 @@
         </div>
 
         <div class="text-center" style="margin-bottom: 5px;">
-            <strong>{{ comprobante.serie }}-{{ comprobante.numero }}</strong>
+            <strong>{{ comprobante.serie }}-{{ comprobante.numero|stringformat:"08d" }}</strong>
         </div>
 
         <table class="main-table">
@@ -138,11 +153,11 @@
                 {% if comprobante.cliente %}
                     <tr>
                         <td colspan="2"><strong>{% if comprobante.tipo_comprobante == 'FACTURA' %}Razón Social:{% else %}Cliente:{% endif %}</strong></td>
-                        <td class="text-center">{{ comprobante.cliente.nombre_completo }}</td>
+                        <td class="text-center">{{ comprobante.cliente.razon_social|default:comprobante.cliente.nombre_completo }}</td>
                     </tr>
                     <tr>
                         <td colspan="2"><strong>{% if comprobante.tipo_comprobante == 'FACTURA' %}RUC:{% else %}DNI:{% endif %}</strong></td>
-                        <td class="text-center">{{ comprobante.cliente.dni_ruc|default:"-" }}</td>
+                        <td class="text-center">{{ comprobante.cliente.ruc|default:comprobante.cliente.dni }}</td>
                     </tr>
                 {% else %}
                     <tr>
@@ -150,23 +165,28 @@
                         <td class="text-center">Venta al Público General</td>
                     </tr>
                 {% endif %}
+                <!-- NUEVO: MODO DE PAGO -->
+                <tr>
+                    <td colspan="2"><strong>Forma de Pago:</strong></td>
+                    <td class="text-center">{{ comprobante.get_metodo_pago_display|upper }}</td>
+                </tr>
             </tbody>
 
-<thead>
-    <tr class="separator-row"><td colspan="3"></td></tr>
-    <tr style="text-align: center;">
-        <th width="5%">Cant.</th>
-        <th width="70%">Descripción</th>
-        <th width="30%">Total</th>
-    </tr>
-</thead>
+            <thead>
+                <tr class="separator-row"><td colspan="3"><hr style="border-top: 1px dashed #999;"></td></tr>
+                <tr style="text-align: center;">
+                    <th width="15%">Cant.</th>
+                    <th width="55%">Descripción</th>
+                    <th width="30%">Total</th>
+                </tr>
+            </thead>
 
             <tbody>
                 {% for detalle in comprobante.detalles.all %}
                 <tr>
-                    <td class="text-center">{{ detalle.cantidad }}</td>
-                    <td class="text-center" style="text-align: center;">{{ detalle.producto.nombre }}</td>
-                    <td class="text-center">S/ {{ detalle.subtotal|floatformat:2 }}</td>
+                    <td class="text-center">{{ detalle.cantidad }} <small>{{ detalle.producto.unidad_medida }}</small></td>
+                    <td class="text-center">{{ detalle.producto.nombre }}</td>
+                    <td class="text-right">S/ {{ detalle.subtotal|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -193,8 +213,19 @@
                 <p>Obs: {{ comprobante.observaciones }}</p>
             {% endif %}
         </div>
+
+        <!-- SECCIÓN DE SIMULACRO SUNAT -->
+        <div class="sunat-section">
+            <p>Representación impresa de la {% if comprobante.tipo_comprobante == 'FACTURA' %}FACTURA{% else %}BOLETA{% endif %} ELECTRÓNICA.</p>
+            <p>Este documento es una simulación para gestión interna.</p>
+            
+            <!-- QR DINÁMICO (Contiene RUC Emisor, Tipo Doc, Serie, Número, IGV, Total, Fecha, DNI/RUC Cliente) -->
+            <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ comprobante.tienda.ruc }}|{{ comprobante.tipo_comprobante }}|{{ comprobante.serie }}|{{ comprobante.numero }}|{{ comprobante.igv }}|{{ comprobante.total_final }}|{{ comprobante.fecha_emision|date:'d/m/Y' }}|{{ comprobante.cliente.dni|default:comprobante.cliente.ruc }}" alt="QR SUNAT">
+            
+            <p><strong>Hash:</strong> {{ comprobante.hash_sunat|default:"N/A" }}</p>
+            <p>Consulte la validez de este documento en:<br><strong>www.ferreteriatapiamelendez.com/consultas</strong></p>
+        </div>
     </div>
 
 </body>
 </html>
-
