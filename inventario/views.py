@@ -638,70 +638,59 @@ def exportar_reporte_ventas_excel_view(request): return redirect('inventario:das
 def exportar_stock_actual_excel_view(request): return redirect('inventario:dashboard')
 
 # ==============================================================================
-# GESTIÓN DE DEUDORES Y ABONOS (CRÉDITOS)
+# MÓDULOS PROFESIONALES: DEUDORES Y KARDEX
 # ==============================================================================
 
 @login_required
 def lista_deudores_view(request):
+    """Muestra quién debe dinero a la ferretería"""
     tienda = obtener_tienda_usuario(request.user)
-    # Filtramos solo clientes que tengan deuda mayor a 0
     deudores = Cliente.objects.filter(tienda=tienda, saldo_deudora__gt=0).order_by('-saldo_deudora')
-    
     total_por_cobrar = deudores.aggregate(Sum('saldo_deudora'))['saldo_deudora__sum'] or 0
-    
     return render(request, 'inventario/deudores_lista.html', {
-        'deudores': deudores,
-        'total_por_cobrar': total_por_cobrar,
-        'tienda': tienda
+        'deudores': deudores, 'total_por_cobrar': total_por_cobrar
     })
 
 @login_required
 def registrar_abono_view(request, cliente_id):
+    """Registra cuando un cliente paga parte o toda su deuda"""
     tienda = obtener_tienda_usuario(request.user)
     cliente = get_object_or_404(Cliente, id=cliente_id, tienda=tienda)
-    
-    # Validamos si hay caja abierta para recibir el dinero
     caja = CajaDiaria.objects.filter(tienda=tienda, estado='ABIERTA').first()
+
     if not caja:
-        messages.error(request, "DEBES ABRIR CAJA para poder registrar un cobro de deuda.")
+        messages.error(request, "Debe abrir caja para recibir pagos de deudas.")
         return redirect('inventario:apertura_caja')
 
     if request.method == 'POST':
-        form = AbonoForm(request.POST)
-        if form.is_valid():
-            monto_abono = form.cleaned_data['monto']
-            
-            if monto_abono > cliente.saldo_deudora:
-                messages.error(request, f"El abono no puede ser mayor a la deuda actual (S/ {cliente.saldo_deudora})")
-            else:
-                with transaction.atomic():
-                    # 1. Registrar el abono
-                    abono = form.save(commit=False)
-                    abono.cliente = cliente
-                    abono.usuario = request.user
-                    abono.save()
-                    
-                    # 2. Restar saldo al cliente
-                    cliente.saldo_deudora -= monto_abono
-                    cliente.save()
-                    
-                    # 3. Meter el dinero a la Caja Diaria automáticamente
-                    MovimientoCaja.objects.create(
-                        caja=caja,
-                        tipo='INGRESO',
-                        monto=monto_abono,
-                        concepto=f"Cobro de Deuda: {cliente}",
-                        usuario=request.user
-                    )
-                    
-                    messages.success(request, f"¡Abono de S/ {monto_abono} registrado! Saldo restante: S/ {cliente.saldo_deudora}")
-                    return redirect('inventario:lista_deudores')
-    else:
-        form = AbonoForm()
+        monto = Decimal(request.POST.get('monto', 0))
+        if monto > 0 and monto <= cliente.saldo_deudora:
+            with transaction.atomic():
+                PagoCredito.objects.create(cliente=cliente, monto=monto, usuario=request.user)
+                cliente.saldo_deudora -= monto
+                cliente.save()
+                # El dinero entra a caja automáticamente
+                MovimientoCaja.objects.create(
+                    caja=caja, tipo='INGRESO', monto=monto, 
+                    concepto=f"Abono de deuda: {cliente}", usuario=request.user
+                )
+                messages.success(request, f"Pago de S/ {monto} registrado con éxito.")
+                return redirect('inventario:lista_deudores')
+    return render(request, 'inventario/deudores_pago.html', {'cliente': cliente})
 
-    return render(request, 'inventario/deudores_pago.html', {
-        'form': form,
-        'cliente': cliente,
-        'caja': caja
-    })
+@login_required
+def kardex_general_view(request):
+    """Historial de movimientos de todos los productos"""
+    tienda = obtener_tienda_usuario(request.user)
+    movimientos = MovimientoStock.objects.filter(producto__tienda=tienda).select_related('producto', 'usuario')[:100]
+    return render(request, 'inventario/kardex_lista.html', {'movimientos': movimientos})
+
+@login_required
+def kardex_producto_view(request, producto_id):
+    """Kardex específico para ver la historia de UN solo producto"""
+    tienda = obtener_tienda_usuario(request.user)
+    producto = get_object_or_404(Producto, id=producto_id, tienda=tienda)
+    movimientos = MovimientoStock.objects.filter(producto=producto).order_by('-fecha')
+    return render(request, 'inventario/kardex_producto.html', {'producto': producto, 'movimientos': movimientos})
+
 
