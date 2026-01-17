@@ -38,7 +38,7 @@ class Producto(models.Model):
     stock = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     costo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     precio = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    # UNIDADES: Mejorado con opciones predefinidas
+    # UNIDADES: Mejorado con opciones predefinidas para evitar errores de escritura
     unidad_medida = models.CharField(max_length=10, choices=UNIDADES_CHOICES, default='UND', help_text="Ej: UND, MTS, KG, LTS, CAJA")
 
     class Meta:
@@ -47,7 +47,7 @@ class Producto(models.Model):
         verbose_name_plural = "Productos"
 
     def __str__(self):
-        return f"{self.nombre} ({self.unidad_medida})"
+        return f"{self.nombre} ({self.unidad_medida}) - {self.tienda.nombre}"
 
 # === NUEVO: MODELO KARDEX (AUDITORÍA DE STOCK) ===
 class MovimientoStock(models.Model):
@@ -130,7 +130,7 @@ class Venta(models.Model):
         ordering = ['-fecha_de_venta']
 
     def __str__(self):
-        return f'Venta de {self.cantidad} x {self.producto.nombre} el {self.fecha_de_venta.strftime("%d/%m/%Y %H:%M")} ({self.tienda.nombre})'
+        return f'Venta de {self.cantidad} x {self.producto.nombre} el {self.fecha_de_venta.strftime("%d/%m/%Y %H:%M")}'
 
 
 class Compra(models.Model):
@@ -148,7 +148,7 @@ class Compra(models.Model):
 
     def __str__(self):
         proveedor_nombre = self.proveedor.razon_social if self.proveedor else "Proveedor Eliminado"
-        return f'Compra de {self.cantidad} x {self.producto.nombre} a {proveedor_nombre} ({self.tienda.nombre})'
+        return f'Compra de {self.cantidad} x {self.producto.nombre} a {proveedor_nombre}'
 
 class Comprobante(models.Model):
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='comprobantes')
@@ -162,7 +162,7 @@ class Comprobante(models.Model):
         ('PENDIENTE', 'Pendiente de Pago'),
         ('PAGADO', 'Pagado'),
     ]
-    # CRÉDITOS: Opciones de pago
+    # CRÉDITOS: Opciones de pago profesionales
     METODOS_PAGO = [
         ('EFECTIVO', 'Efectivo'),
         ('CREDITO', 'Crédito (Fiao)'),
@@ -182,10 +182,11 @@ class Comprobante(models.Model):
 
     estado = models.CharField(max_length=10, choices=ESTADO_COMPROBANTE_CHOICES, default='EMITIDO')
     
-    # NUEVOS CAMPOS: Créditos y SUNAT Mock
+    # NUEVOS CAMPOS: Créditos y simulacro SUNAT Mock
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, default='EFECTIVO')
-    hash_sunat = models.CharField(max_length=100, blank=True, null=True, help_text="Hash digital simulado")
+    hash_sunat = models.CharField(max_length=100, blank=True, null=True, help_text="Hash digital simulado (SUNAT Mock)")
     monto_abonado = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Monto pagado al momento de la venta")
+    estado_pago = models.BooleanField(default=True, help_text="True=Pagado, False=Deuda pendiente")
     
     observaciones = models.TextField(blank=True, null=True)
 
@@ -196,7 +197,7 @@ class Comprobante(models.Model):
         ordering = ['-fecha_emision']
 
     def __str__(self):
-        return f"{self.tienda.nombre} - {self.tipo_comprobante} {self.serie}-{self.numero} - Total: {self.total_final}"
+        return f"{self.tienda.nombre} - {self.tipo_comprobante} {self.serie}-{self.numero}"
 
     def save(self, *args, **kwargs):
         if not self.pk:
@@ -211,7 +212,7 @@ class Comprobante(models.Model):
             else:
                 self.numero = 1
             
-            # SUNAT MOCK: Generar firma digital simulada
+            # SUNAT MOCK: Generar firma digital simulada automáticamente
             self.hash_sunat = uuid.uuid4().hex[:30].upper()
             
         super().save(*args, **kwargs)
@@ -234,7 +235,7 @@ class DetalleComprobante(models.Model):
         verbose_name_plural = "Detalles de Comprobante"
 
     def __str__(self):
-        return f"{self.cantidad} x {self.producto.nombre} en {self.comprobante.tipo_comprobante}-{self.comprobante.numero}"
+        return f"{self.cantidad} x {self.producto.nombre}"
 
     def save(self, *args, **kwargs):
         self.subtotal = Decimal(str(self.cantidad)) * Decimal(str(self.precio_unitario))
@@ -242,11 +243,11 @@ class DetalleComprobante(models.Model):
 
 # === NUEVO: MODELO ABONOS PARA CRÉDITOS ===
 class PagoCredito(models.Model):
-    """Registro de abonos de clientes para sus deudas"""
+    """Registro de abonos de clientes para sus deudas (Cuentas por cobrar)"""
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='abonos')
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     fecha = models.DateTimeField(auto_now_add=True)
-    metodo = models.CharField(max_length=20, default='EFECTIVO')
+    metodo = models.CharField(max_length=20, choices=[('EFECTIVO', 'Efectivo'), ('TRANSFERENCIA', 'Transferencia')], default='EFECTIVO')
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
     class Meta:
