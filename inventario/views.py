@@ -636,3 +636,72 @@ def exportar_comprobantes_view(request): return redirect('inventario:dashboard')
 def exportar_reporte_ventas_excel_view(request): return redirect('inventario:dashboard')
 @login_required
 def exportar_stock_actual_excel_view(request): return redirect('inventario:dashboard')
+
+# ==============================================================================
+# GESTIÓN DE DEUDORES Y ABONOS (CRÉDITOS)
+# ==============================================================================
+
+@login_required
+def lista_deudores_view(request):
+    tienda = obtener_tienda_usuario(request.user)
+    # Filtramos solo clientes que tengan deuda mayor a 0
+    deudores = Cliente.objects.filter(tienda=tienda, saldo_deudora__gt=0).order_by('-saldo_deudora')
+    
+    total_por_cobrar = deudores.aggregate(Sum('saldo_deudora'))['saldo_deudora__sum'] or 0
+    
+    return render(request, 'inventario/deudores_lista.html', {
+        'deudores': deudores,
+        'total_por_cobrar': total_por_cobrar,
+        'tienda': tienda
+    })
+
+@login_required
+def registrar_abono_view(request, cliente_id):
+    tienda = obtener_tienda_usuario(request.user)
+    cliente = get_object_or_404(Cliente, id=cliente_id, tienda=tienda)
+    
+    # Validamos si hay caja abierta para recibir el dinero
+    caja = CajaDiaria.objects.filter(tienda=tienda, estado='ABIERTA').first()
+    if not caja:
+        messages.error(request, "DEBES ABRIR CAJA para poder registrar un cobro de deuda.")
+        return redirect('inventario:apertura_caja')
+
+    if request.method == 'POST':
+        form = AbonoForm(request.POST)
+        if form.is_valid():
+            monto_abono = form.cleaned_data['monto']
+            
+            if monto_abono > cliente.saldo_deudora:
+                messages.error(request, f"El abono no puede ser mayor a la deuda actual (S/ {cliente.saldo_deudora})")
+            else:
+                with transaction.atomic():
+                    # 1. Registrar el abono
+                    abono = form.save(commit=False)
+                    abono.cliente = cliente
+                    abono.usuario = request.user
+                    abono.save()
+                    
+                    # 2. Restar saldo al cliente
+                    cliente.saldo_deudora -= monto_abono
+                    cliente.save()
+                    
+                    # 3. Meter el dinero a la Caja Diaria automáticamente
+                    MovimientoCaja.objects.create(
+                        caja=caja,
+                        tipo='INGRESO',
+                        monto=monto_abono,
+                        concepto=f"Cobro de Deuda: {cliente}",
+                        usuario=request.user
+                    )
+                    
+                    messages.success(request, f"¡Abono de S/ {monto_abono} registrado! Saldo restante: S/ {cliente.saldo_deudora}")
+                    return redirect('inventario:lista_deudores')
+    else:
+        form = AbonoForm()
+
+    return render(request, 'inventario/deudores_pago.html', {
+        'form': form,
+        'cliente': cliente,
+        'caja': caja
+    })
+
