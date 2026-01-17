@@ -31,8 +31,21 @@ class Producto(models.Model):
         ('CJ', 'Caja'),
         ('BOL', 'Bolsa'),
     ]
+    # === AGREGADO: Categorías para tu lógica ===
+    CATEGORIAS = [
+        ('MATERIALES', 'Materiales de Construcción'),
+        ('HERRAMIENTAS', 'Herramientas'),
+        ('PINTURAS', 'Pinturas y Acabados'),
+        ('SEGURIDAD', 'Seguridad Industrial'),
+        ('OTROS', 'Otros'),
+    ]
+    
     tienda = models.ForeignKey(Tienda, on_delete=models.CASCADE, related_name='productos')
     nombre = models.CharField(max_length=100)
+    
+    # === CAMPO NUEVO AGREGADO ===
+    categoria = models.CharField(max_length=20, choices=CATEGORIAS, default='OTROS')
+    
     codigo_barras = models.CharField(max_length=100, blank=True, null=True)
     # CAMBIO FERRETERÍA: DecimalField para permitir 1.5 metros, etc.
     stock = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
