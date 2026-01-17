@@ -22,7 +22,7 @@ from io import BytesIO
 from xhtml2pdf import pisa
 from tablib import Dataset
 
-# Importaciones locales de tu App
+# Importaciones locales de tu App (Consolidadas aquí arriba)
 from .models import (
     Producto, Venta, Proveedor, Compra, Cliente, Comprobante, 
     DetalleComprobante, Tienda, LoginLog, Perfil, CajaDiaria, MovimientoCaja
@@ -119,7 +119,6 @@ def pos_view(request):
         'ultimas_ventas': ultimas_ventas_detalles,
         'tienda_actual': tienda_actual,
     }
-    
     return render(request, 'inventario/pos.html', contexto)
 
 
@@ -136,7 +135,8 @@ def emitir_comprobante_y_preparar_impresion_view(request):
             observaciones_venta = request.POST.get('observaciones', '')
             tipo_comprobante = request.POST.get('tipo_comprobante')
             producto_id = request.POST.get('producto_id')
-            cantidad_vendida = int(request.POST.get('cantidad', 1))
+            cantidad_vendida = Decimal(request.POST.get('cantidad', 1)) # Decimal para unidades como MTS
+            metodo_pago = request.POST.get('metodo_pago', 'EFECTIVO') # Nueva lógica crédito
 
             producto = get_object_or_404(Producto, id=producto_id, tienda=tienda_actual)
             cliente_seleccionado = Cliente.objects.filter(id=cliente_id, tienda=tienda_actual).first() if cliente_id else None
@@ -148,7 +148,7 @@ def emitir_comprobante_y_preparar_impresion_view(request):
                 producto.stock -= cantidad_vendida
                 producto.save()
                 
-                total_final_venta = producto.precio * Decimal(cantidad_vendida)
+                total_final_venta = producto.precio * cantidad_vendida
                 tasa_igv = Decimal('1.18')
                 subtotal_venta = (total_final_venta / tasa_igv).quantize(Decimal('0.01'))
                 igv_monto = total_final_venta - subtotal_venta
@@ -161,8 +161,16 @@ def emitir_comprobante_y_preparar_impresion_view(request):
                     subtotal=subtotal_venta,
                     igv=igv_monto,
                     total_final=total_final_venta,
+                    metodo_pago=metodo_pago,
                     observaciones=observaciones_venta,
                 )
+
+                # LÓGICA DE CRÉDITO (Fiao)
+                if metodo_pago == 'CREDITO' and cliente_seleccionado:
+                    cliente_seleccionado.saldo_deudora += total_final_venta
+                    cliente_seleccionado.save()
+                    comprobante.estado_pago = False
+                    comprobante.save()
 
                 DetalleComprobante.objects.create(
                     comprobante=comprobante,
@@ -174,6 +182,7 @@ def emitir_comprobante_y_preparar_impresion_view(request):
                     precio_unitario_con_igv=producto.precio
                 )
                 
+                messages.success(request, 'Comprobante emitido con éxito.')
                 return redirect('inventario:vista_ticket_comprobante', comprobante_id=comprobante.id)
 
         except Exception as e:
@@ -199,6 +208,7 @@ def registrar_compra_view(request):
             try:
                 compra = form.save(commit=False)
                 compra.tienda = tienda_actual
+                # El Kardex se registrará solo vía signals.py
                 compra.producto.stock += compra.cantidad
                 compra.producto.save()
                 compra.save()
@@ -221,10 +231,17 @@ def portal_view(request):
 
 def catalogo_view(request):
     query = request.GET.get('q', '')
+    categoria = request.GET.get('categoria', '')
     productos = Producto.objects.all().order_by('nombre')
     if query:
         productos = productos.filter(Q(nombre__icontains=query) | Q(codigo_barras__icontains=query))
-    return render(request, 'inventario/catalogo.html', {'productos': productos, 'busqueda': query})
+    if categoria:
+        if categoria == 'materiales': productos = productos.filter(codigo_barras__istartswith='MAT')
+        elif categoria == 'herramienta': productos = productos.filter(codigo_barras__istartswith='HER')
+        elif categoria == 'pintura': productos = productos.filter(codigo_barras__istartswith='PIN')
+        elif categoria == 'seguridad': productos = productos.filter(codigo_barras__istartswith='SEG')
+    context = {'productos': productos, 'busqueda': query, 'categoria_filtro': categoria}
+    return render(request, 'inventario/catalogo.html', context)
 
 
 # ==============================================================================
@@ -273,10 +290,14 @@ def registro_view(request):
         form = RegistroTiendaForm(request.POST)
         if form.is_valid():
             data = form.cleaned_data
-            nuevo_usuario = User.objects.create_user(username=data['username'], email=data['email'], password=data['password'])
-            Tienda.objects.create(propietario=nuevo_usuario, nombre=data['nombre_tienda'], ruc=data['ruc_tienda'])
-            messages.success(request, "¡Registro exitoso! Ya puedes ingresar.")
-            return redirect('inventario:login')
+            try:
+                with transaction.atomic():
+                    nuevo_usuario = User.objects.create_user(username=data['username'], email=data['email'], password=data['password'])
+                    Tienda.objects.create(propietario=nuevo_usuario, nombre=data['nombre_tienda'], ruc=data['ruc_tienda'])
+                messages.success(request, "¡Registro exitoso! Ya puedes iniciar sesión.")
+                return redirect('inventario:login')
+            except Exception as e:
+                messages.error(request, f"Error: {e}")
     return render(request, 'inventario/registro.html', {'form': RegistroTiendaForm()})
 
 @login_required
@@ -381,19 +402,59 @@ def importar_datos_view(request, data_type):
 def emitir_comprobante_ajax_view(request):
     if request.method != 'POST': return JsonResponse({'error': 'Error'}, status=405)
     try:
-        tienda = obtener_tienda_usuario(request.user)
+        tienda_actual = obtener_tienda_usuario(request.user)
         data = json.loads(request.body)
+        cart_items = data.get('cart')
+        metodo = data.get('metodo_pago', 'EFECTIVO') # Nueva lógica Crédito
+        
+        if not cart_items: return JsonResponse({'error': 'Vacío'}, status=400)
+        
         with transaction.atomic():
-            total = sum(Decimal(str(i['price'])) * Decimal(str(i['quantity'])) for i in data['cart'])
-            comp = Comprobante.objects.create(tienda=tienda, tipo_comprobante=data['tipo_comprobante'], total_final=total, serie='B001')
-            stocks = []
-            for i in data['cart']:
-                p = get_object_or_404(Producto, id=i['id'], tienda=tienda)
-                p.stock -= Decimal(str(i['quantity']))
-                p.save()
-                DetalleComprobante.objects.create(comprobante=comp, producto=p, cantidad=i['quantity'], precio_unitario=Decimal(str(i['price']))/Decimal('1.18'), subtotal=Decimal(str(i['price']))*Decimal(str(i['quantity'])))
-                stocks.append({'id': p.id, 'stock': float(p.stock)})
-            return JsonResponse({'comprobante_id': comp.id, 'stocks_actualizados': stocks})
+            total_final_venta = sum(Decimal(str(item['price'])) * Decimal(str(item['quantity'])) for item in cart_items)
+            tasa_igv_decimal = Decimal('0.18')
+            subtotal_venta = (total_final_venta / (1 + tasa_igv_decimal)).quantize(Decimal('0.01'), rounding='ROUND_HALF_UP')
+            igv_monto = (total_final_venta - subtotal_venta)
+            
+            cliente_id = data.get('cliente_id')
+            cliente_seleccionado = Cliente.objects.filter(id=cliente_id, tienda=tienda_actual).first() if cliente_id else None
+            
+            comprobante = Comprobante.objects.create(
+                tienda=tienda_actual, 
+                tipo_comprobante=data['tipo_comprobante'], 
+                total_final=total_final_venta, 
+                subtotal=subtotal_venta,
+                igv=igv_monto,
+                serie='B001' if data['tipo_comprobante'] == 'BOLETA' else 'F001',
+                metodo_pago=metodo,
+                cliente=cliente_seleccionado,
+                observaciones=data.get('observaciones', '')
+            )
+            
+            # SI ES CRÉDITO, ACTUALIZAMOS LA DEUDA DEL CLIENTE
+            if metodo == 'CREDITO' and cliente_seleccionado:
+                cliente_seleccionado.saldo_deudora += total_final_venta
+                cliente_seleccionado.save()
+                comprobante.estado_pago = False
+                comprobante.save()
+
+            stocks_actualizados = []
+            for item in cart_items:
+                producto = get_object_or_404(Producto, id=item['id'], tienda=tienda_actual)
+                # Al restar stock aquí, el signal.py registrará el Kardex automáticamente
+                producto.stock -= Decimal(str(item['quantity']))
+                producto.save()
+                
+                DetalleComprobante.objects.create(
+                    comprobante=comprobante, 
+                    producto=producto, 
+                    cantidad=item['quantity'], 
+                    precio_unitario=Decimal(str(item['price']))/Decimal('1.18'), 
+                    costo_unitario=producto.costo,
+                    subtotal=Decimal(str(item['price']))*Decimal(str(item['quantity']))
+                )
+                stocks_actualizados.append({'id': producto.id, 'stock': float(producto.stock)})
+            
+            return JsonResponse({'comprobante_id': comprobante.id, 'stocks_actualizados': stocks_actualizados})
     except Exception as e: return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
@@ -412,13 +473,18 @@ def eliminar_venta_view(request, comprobante_id):
     if request.method == 'POST':
         tienda = obtener_tienda_usuario(request.user)
         comprobante = get_object_or_404(Comprobante, id=comprobante_id, tienda=tienda)
-        for d in comprobante.detalles.all():
-            d.producto.stock += d.cantidad
-            d.producto.save()
-        comprobante.delete()
+        with transaction.atomic():
+            # Si eliminamos una venta al crédito, restamos la deuda al cliente
+            if comprobante.metodo_pago == 'CREDITO' and comprobante.cliente:
+                comprobante.cliente.saldo_deudora -= comprobante.total_final
+                comprobante.cliente.save()
+
+            for d in comprobante.detalles.all():
+                d.producto.stock += d.cantidad
+                d.producto.save()
+            comprobante.delete()
         return redirect('inventario:gestion_lista', modelo='comprobantes')
     return redirect('inventario:dashboard')
-
 
 @login_required
 def log_logueos_view(request):
@@ -482,17 +548,16 @@ def crear_cliente_ajax_view(request):
     if request.method == 'POST':
         tienda = obtener_tienda_usuario(request.user)
         data = json.loads(request.body)
-        c = Cliente.objects.create(tienda=tienda, nombre_completo=data.get('nombre'), dni=data.get('dni'), razon_social=data.get('razon'), ruc=data.get('ruc'), dni_ruc=data.get('ruc') or data.get('dni'))
+        doc = data.get('ruc') or data.get('dni')
+        c = Cliente.objects.create(tienda=tienda, nombre_completo=data.get('nombre'), dni=data.get('dni'), razon_social=data.get('razon'), ruc=data.get('ruc'), dni_ruc=doc)
         return JsonResponse({'id': c.id, 'text': str(c), 'ruc': c.ruc, 'razon': c.razon_social})
     return JsonResponse({'error': 'X'}, status=405)
 
 def logout_view(request):
-    """Lógica definitiva para activar Splash de Despedida"""
     nombre = "Usuario"
     if request.user.is_authenticated:
         nombre = request.user.first_name or request.user.username
     auth_logout(request)
-    # REDIRECCIÓN CON PARÁMETROS PARA EL PORTAL
     return redirect(reverse('inventario:portal') + f'?logout=true&nombre={nombre}')
 
 
@@ -531,10 +596,7 @@ def cierre_caja_view(request):
             c.diferencia = c.monto_final_real - total_sistema
             c.save()
             return redirect('inventario:dashboard')
-    return render(request, 'inventario/caja_cierre.html', {
-        'form': CierreCajaForm(), 'caja': caja, 'ventas': ventas, 'ingresos': ingresos, 
-        'egresos': egresos, 'total_sistema': total_sistema
-    })
+    return render(request, 'inventario/caja_cierre.html', {'form': CierreCajaForm(), 'caja': caja, 'ventas': ventas, 'ingresos': ingresos, 'egresos': egresos, 'total_sistema': total_sistema})
 
 @login_required
 def movimiento_caja_view(request):
